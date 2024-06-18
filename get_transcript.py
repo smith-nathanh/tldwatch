@@ -3,7 +3,6 @@ import argparse
 import os
 
 
-
 def main():
     """
     Entry point to get the transcript of a YouTube video using its video ID.

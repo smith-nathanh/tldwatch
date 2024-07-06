@@ -1,4 +1,4 @@
-Module to summarize youtube transcripts. 
+Module to summarize youtube transcripts using OpenAI api. 
 
 Example: 
 ```python

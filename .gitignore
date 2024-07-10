@@ -6,3 +6,5 @@ _token.json
 scratch.docx
 get_transcript.py
 testing.ipynb
+__pycache__/utils.cpython-310.pyc
+ARC.docx

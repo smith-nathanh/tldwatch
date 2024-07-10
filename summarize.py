@@ -1,12 +1,10 @@
 import argparse
-import json
 import os
-import re
-from openai import OpenAI
 from youtube_transcript_api import YouTubeTranscriptApi
-import tiktoken
-import instructor
-from pydantic import BaseModel
+from utils import clean_transcript_string, save_response
+from langchain_openai import ChatOpenAI
+from langchain.chains.summarize import load_summarize_chain
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # Dictionary mapping model names to their maximum context length in tokens
 MODEL_TOKEN_LIMITS = {
@@ -17,61 +15,10 @@ MODEL_TOKEN_LIMITS = {
     'gpt-4-turbo-2024-04-09': 128000
 }
 
-# Function to calculate the number of tokens in a message
-def num_tokens_from_messages(messages, encoding):
-    #encoding = tiktoken.encoding_for_model(model)
-    num_tokens = 0
-    for message in messages:
-        num_tokens += 4  # Every message has a minimum of 4 tokens
-        for key, value in message.items():
-            num_tokens += len(encoding.encode(value))
-            if key == "name":  # If there's a name, it counts for an extra token
-                num_tokens += 1
-    num_tokens += 2  # Every reply also has 2 tokens
-    return num_tokens
-
-# Function to truncate the last user message to fit within the maximum context length
-def truncate_last_user_message(messages, max_tokens, model="gpt-3.5-turbo"):
-    encoding = tiktoken.encoding_for_model(model)
-    total_tokens = num_tokens_from_messages(messages, encoding)
-    while total_tokens > max_tokens:
-        last_message = messages[-1]
-        if last_message["role"] == "user":
-            original_content = last_message["content"]
-            encoded_content = encoding.encode(original_content)
-            tokens_to_remove = total_tokens - max_tokens
-            truncated_content = encoding.decode(encoded_content[:-tokens_to_remove])
-            last_message["content"] = truncated_content
-            total_tokens = num_tokens_from_messages(messages, encoding)
-            if len(truncated_content) == 0:
-                raise ValueError("User message cannot be truncated further without losing all content.")
-        else:
-            raise ValueError("The last message is not from the user; unable to truncate further.")
-    return messages
-
-def retrieve_prompt(path):
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"Prompt template file {path} not found!")
-    with open(path, "r") as f:
-        prompt = json.load(f)
-    return prompt
-
-def clean_string(text):
-    # Replace non-breaking spaces with regular spaces
-    text = text.replace('\xa0', ' ')
-    # Remove newline characters
-    text = text.replace('\n', ' ')
-    # Remove any escape sequences like \'
-    text = text.encode('ascii', 'ignore').decode('ascii')
-    # Normalize multiple spaces to a single space
-    text = re.sub(r'\s+', ' ', text)
-    # Strip leading and trailing whitespace
-    text = text.strip()
-    return text
-
-class Summary(BaseModel):
-    """Response model"""
-    summary: str
+LANGCHAIN_TRACING_V2=True
+LANGCHAIN_ENDPOINT="https://api.smith.langchain.com"
+LANGCHAIN_API_KEY=os.environ['LANGCHAIN_API_KEY']
+LANGCHAIN_PROJECT="pr-plaintive-scow-13"
 
 def main():
     # Parse command line arguments
@@ -79,6 +26,7 @@ def main():
     parser.add_argument("--channel", "-p", required=True, help="The channel you are pulling from.")
     parser.add_argument("--video_id", help="The video ID of the YouTube video.")
     parser.add_argument('--model', default="gpt-3.5-turbo-16k", help="The model to use for the completion")
+    parser.add_argument('--temperature', default=0.3, help="Temperature parameter of the model")
     parser.add_argument("--prompt", "-t", default="prompt.json", help="The JSON file containing the prompt template")
     parser.add_argument("--outdir", "-o", required=False, help="The directory to save the transcript and the summary as json.")
     args = parser.parse_args()
@@ -90,38 +38,31 @@ def main():
     # make the output directory if it doesn't exist
     os.makedirs(outdir, exist_ok=True)
 
-    # get the prompt
-    prompt = retrieve_prompt(args.prompt)
+    # Define LLM
+    llm = ChatOpenAI(temperature=args.temperature, model_name=args.model)
 
     # get the transcript
     raw_transcript = YouTubeTranscriptApi.get_transcript(video_id)
     transcript = ' '.join([line['text'] for line in raw_transcript])
-    transcript = clean_string(transcript)
+    transcript = clean_transcript_string(transcript)
 
-    # add the transcript to the prompt
-    prompt["messages"].append({"role": "user", "content": f"Please summarize the main points in the following: {transcript}"})
-    
-    # trim the transcript message if necessary
-    additional_tokens = 350 # from response_model
-    max_tokens = MODEL_TOKEN_LIMITS[args.model] - prompt['max_tokens'] - additional_tokens
-    prompt['messages'] =  truncate_last_user_message(prompt["messages"], max_tokens, args.model)
+    # split the text up into chunks if necessary
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=MODEL_TOKEN_LIMITS[args.model] - 500,
+        chunk_overlap=0,
+        length_function=len,
+        is_separator_regex=False
+        )
+    texts = text_splitter.create_documents([transcript])
 
-    # update with model and response type
-    prompt['model'] = args.model
-    prompt['response_model'] = Summary
+    # generate summary
+    chain = load_summarize_chain(llm, chain_type="refine")
+    result = chain.invoke(texts)
 
-    # Send the input data as a prompt to the OpenAI API and get the response
-    client = instructor.from_openai(OpenAI())
-    response = client.chat.completions.create(**prompt)
-    
-    # Save the response to a json file
-    output = {'transcript': transcript, 'summary': response.summary}
-    print('\n', output['summary'], '\n')
-    output_file = os.path.join(outdir, f"{args.video_id}.json")
-    with open(output_file, "w", encoding="utf-8") as f: 
-        json.dump(output, f)
+    # print and save response
+    print('\n', result["output_text"], '\n')
+    save_response(transcript, result["output_text"], outdir, args)
 
-    print(f"Response written to {output_file}\n")
 
 if __name__ == "__main__":
    main()

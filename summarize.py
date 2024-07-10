@@ -13,7 +13,8 @@ MODEL_TOKEN_LIMITS = {
     "gpt-3.5-turbo": 4096,
     "gpt-3.5-turbo-16k": 16384,
     "gpt-4": 8192,
-    "gpt-4-32k": 32768
+    "gpt-4-32k": 32768,
+    'gpt-4-turbo-2024-04-09': 128000
 }
 
 # Function to calculate the number of tokens in a message
@@ -101,10 +102,9 @@ def main():
     prompt["messages"].append({"role": "user", "content": f"Please summarize the main points in the following: {transcript}"})
     
     # trim the transcript message if necessary
-    additional_tokens = 300 # from response_model 
-    prompt['messages'] =  truncate_last_user_message(prompt["messages"], 
-                                                     max_tokens=MODEL_TOKEN_LIMITS[args.model] - prompt['max_tokens'] - additional_tokens, 
-                                                     model=args.model)
+    additional_tokens = 350 # from response_model
+    max_tokens = MODEL_TOKEN_LIMITS[args.model] - prompt['max_tokens'] - additional_tokens
+    prompt['messages'] =  truncate_last_user_message(prompt["messages"], max_tokens, args.model)
 
     # update with model and response type
     prompt['model'] = args.model

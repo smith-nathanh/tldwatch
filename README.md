@@ -12,6 +12,8 @@ This repository provides a module to summarize YouTube video transcripts using t
 
 ## File Structure
 - **summarize.py**: Main script to fetch transcripts and generate summaries.
+- **get_transcript.py**: Module to retrieve transcripts from YouTube videos.
+- **utils.py**: Utility functions for processing and summarizing text.
 - **requirements.txt**: List of dependencies required for the project.
 - **README.md**: This file.
 

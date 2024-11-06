@@ -1,13 +1,4 @@
 {
-    "model": "gpt-4o",
-    "messages": [
-        {
-            "role": "system",
-            "content": "You are a super insightful and helpful assistant who has a keen eye for detail. Your role is to summarize the transcript from a YouTube video in a short form, punchy, and to the point. Compare your summary to the original text to ensure you've conveyed the same meaning and make corrections before submitting your response."
-
-        }
-    ],
-    "temperature": 0.7,
-    "max_tokens": 1000,
-    "top_p": 1
+    "map_prompt": "Write a concise summary of this video transcript section:\n{text}\nCONCISE SUMMARY:",
+    "combine_prompt": "Below are summaries from different sections of the same video.\nCreate a single coherent summary that captures the key points:\n\n{text}\n\nFINAL SUMMARY:"
 }

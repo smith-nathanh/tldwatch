@@ -5,10 +5,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from utils import clean_transcript_string, save_response
 from langchain_openai import ChatOpenAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-os.environ['LANGCHAIN_TRACING_V2'] = 'true'
-os.environ['LANGCHAIN_ENDPOINT'] = 'https://api.smith.langchain.com'
-os.environ['LANGCHAIN_API_KEY'] = os.getenv('LANGCHAIN_API_KEY')  # Ensure this is set in your environment
+from dotenv import load_dotenv
 
 def main():
     parser = argparse.ArgumentParser()
@@ -84,4 +81,5 @@ def main():
     save_response(transcript, final_text, outdir, args)
 
 if __name__ == "__main__":
+    load_dotenv() # load environment variables from .env file
     main()

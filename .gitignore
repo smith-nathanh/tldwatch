@@ -1,10 +1,12 @@
-/test.ipynb
-/texts
+test.ipynb
+texts/
 token.json
 token2.json
 _token.json
 scratch.docx
 get_transcript.py
 testing.ipynb
-__pycache__/utils.cpython-310.pyc
+__pycache__/
 ARC.docx
+.env
+/.venv

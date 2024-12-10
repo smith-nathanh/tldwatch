@@ -1,4 +1,5 @@
 test.ipynb
+.pyproject.toml
 texts/
 token.json
 token2.json
@@ -10,3 +11,6 @@ __pycache__/
 ARC.docx
 .env
 /.venv
+uv.lock
+_requirements.txt
+pyproject.toml

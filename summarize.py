@@ -9,20 +9,18 @@ from dotenv import load_dotenv
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--channel", "-p", required=True, help="The channel you are pulling from.")
+    parser.add_argument("--channel", required=True, help="The channel you are pulling from.")
     parser.add_argument("--video_id", help="The video ID of the YouTube video.")
-    parser.add_argument("--title", required=False, help="The title to insert into the final text")
+    parser.add_argument("--title", default='', help="The title to insert into the final text")
     parser.add_argument('--model', default="gpt-4o", help="The model to use for the completion")
     parser.add_argument('--prompt', default="prompt.json", help="The prompt to use for the completion")
     parser.add_argument('--temperature', default=0.3, type=float, help="Temperature parameter of the model")
     parser.add_argument('--chunk_size', default=4000, type=int, help="The maximum number of tokens to send to the model at once")
-    parser.add_argument("--outdir", "-o", required=False, help="The directory to save the transcript and the summary as json.")
+    parser.add_argument("--create_thread", action="store_true", help="Create a twitter thread from the summary")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
     args = parser.parse_args()
 
     video_id = args.video_id
-    outdir = os.path.join(os.getcwd(), f'texts/{args.channel}') if args.outdir is None else args.outdir
-    os.makedirs(outdir, exist_ok=True)
 
     llm = ChatOpenAI(
         temperature=args.temperature, 
@@ -54,7 +52,7 @@ def main():
 
     combine_template = prompts.get("combine_prompt", 
         """Below are summaries from different sections of the same video. 
-        Create a single coherent summary that captures the key points:
+        Create a single coherent summary that captures the key points (avoid saying the word 'delves' during your summarization):
 
         {text}
 
@@ -78,11 +76,13 @@ def main():
     # Extract final summary content
     final_text = final_summary.content if hasattr(final_summary, 'content') else str(final_summary)
     
-    # Add title to final text
-    final_text = f"{args.title}\n\n" + final_text if args.title else final_text
+    # save response
+    save_response(args, transcript, final_text)
 
-    print('\n', final_text, '\n')
-    save_response(transcript, final_text, outdir, args)
+    # add title to final text
+    final_text = f"{args.title}\n\n" + final_text if args.title else final_text
+    if args.verbose:
+        print('\n', final_text, '\n')
 
 if __name__ == "__main__":
     load_dotenv() # load environment variables from .env file

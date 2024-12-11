@@ -23,9 +23,22 @@ def retrieve_prompt(path):
         prompt = json.load(f)
     return prompt
 
-def save_response(transcript, summary, outdir, args):
-   # Save the response to a json file
-    output = {'transcript': transcript, 'summary': summary}
+def save_response(args, transcript, summary):
+    
+    # Sanitize channel name for filesystem
+    safe_channel = (args.channel
+                   .replace(' ', '_')
+                   .replace('/', '_')
+                   .replace('&', 'and'))
+    
+    # Create output directory path
+    outdir = os.path.join(os.getcwd(), 'texts', safe_channel)
+    os.makedirs(outdir, exist_ok=True)
+
+    output = {'args': vars(args), 
+              'transcript': transcript, 
+              'summary': summary}
+
     output_file = os.path.join(outdir, f"{args.video_id}.json")
     with open(output_file, "w", encoding="utf-8") as f: 
         json.dump(output, f)

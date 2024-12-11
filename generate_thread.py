@@ -1,44 +1,60 @@
 import json
 import argparse
-import textwrap
-from pathlib import Path
 
 def format_first_paragraph(title, channel):
     return (f"AI Research Highlights ✨ Distilling AI content into focused summaries "
             f"you can read in minutes. Today's video: {title} by {channel}\n"
             "Full summary in the 🧵 below 👇")
 
-def create_thread_paragraphs(summary, title=None, channel=None, video_id=None):
+def create_thread_paragraphs(summary, title=None, channel=None, video_id=None, verbose=True):
     paragraphs = []
     
     if title and channel:
         paragraphs.append(format_first_paragraph(title, channel))
     
-    # Split summary into sentences and group into paragraphs
-    current_paragraph = ""
-    for sentence in summary.split('. '):
-        sentence = sentence.strip()
-        if not sentence:
-            continue
-            
-        test_paragraph = current_paragraph + '. ' + sentence if current_paragraph else sentence
-        if len(test_paragraph) <= 128:
-            current_paragraph = test_paragraph
+    # Clean the summary by removing newlines and extra spaces
+    summary = ' '.join(summary.split())
+    sentences = [s.strip() for s in summary.split('. ') if s.strip()]
+    
+    current_paragraph = []
+    current_length = 0
+    
+    for sentence in sentences:
+        # Calculate new length including the sentence and potential period/space
+        new_length = current_length + len(sentence) + (2 if current_paragraph else 0)
+        
+        if new_length <= 275:  # Leave room for ellipsis
+            current_paragraph.append(sentence)
+            current_length = new_length
         else:
             if current_paragraph:
-                paragraphs.append(current_paragraph + '.')
-            current_paragraph = sentence
+                # Join completed paragraph
+                paragraph_text = '. '.join(current_paragraph) + '.'
+                if verbose:
+                    print(f"Paragraph length: {len(paragraph_text)}")
+                paragraphs.append(paragraph_text)
+            
+            # Start new paragraph with current sentence
+            current_paragraph = [sentence]
+            current_length = len(sentence)
     
+    # Add remaining paragraph if any
     if current_paragraph:
-        paragraphs.append(current_paragraph + '...')
+        paragraph_text = '. '.join(current_paragraph) + '..'
+        if verbose:
+            print(f"Final paragraph length: {len(paragraph_text)}")
+        paragraphs.append(paragraph_text)
     
-    paragraphs.append(f"🔗 Watch the full video here: https://www.youtube.com/watch?v={video_id}")
-        
+    # Add video link
+    video_link = f"🔗 Watch the full video here: https://www.youtube.com/watch?v={video_id}"
+    paragraphs.append(video_link)
+    
     return paragraphs
 
 def main():
     parser = argparse.ArgumentParser(description='Format JSON summary into thread paragraphs')
     parser.add_argument('json_file', help='Path to JSON file containing transcript and summary')
+    parser.add_argument('--verbose', '-v', action='store_true', help='Print paragraphs')
     args = parser.parse_args()
     
     # Read JSON file
@@ -64,12 +80,13 @@ def main():
         return
     
     # Create thread paragraphs
-    paragraphs = create_thread_paragraphs(summary, title, channel, video_id)
+    paragraphs = create_thread_paragraphs(summary, title, channel, video_id, args.verbose)
     
     # Print result
-    print("\nFormatted Thread:\n")
-    for p in paragraphs:
-        print(p + "\n")
+    if args.verbose:
+        print("\nFormatted Thread:\n")
+        for p in paragraphs:
+            print(p + "\n")
     
     # Save to file if output path provided
     try:

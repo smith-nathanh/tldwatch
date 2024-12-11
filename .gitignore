@@ -1,16 +1,5 @@
-test.ipynb
-.pyproject.toml
 texts/
-token.json
-token2.json
-_token.json
-scratch.docx
-get_transcript.py
-testing.ipynb
 __pycache__/
-ARC.docx
 .env
-/.venv
+.venv/
 uv.lock
-_requirements.txt
-pyproject.toml

@@ -11,7 +11,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--channel", "-p", required=True, help="The channel you are pulling from.")
     parser.add_argument("--video_id", help="The video ID of the YouTube video.")
-    parser.add_argument('--model', default="gpt-4-turbo", help="The model to use for the completion")
+    parser.add_argument("--title", required=False, help="The title to insert into the final text")
+    parser.add_argument('--model', default="gpt-4o", help="The model to use for the completion")
     parser.add_argument('--prompt', default="prompt.json", help="The prompt to use for the completion")
     parser.add_argument('--temperature', default=0.3, type=float, help="Temperature parameter of the model")
     parser.add_argument('--chunk_size', default=4000, type=int, help="The maximum number of tokens to send to the model at once")
@@ -76,6 +77,9 @@ def main():
     
     # Extract final summary content
     final_text = final_summary.content if hasattr(final_summary, 'content') else str(final_summary)
+    
+    # Add title to final text
+    final_text = f"{args.title}\n\n" + final_text if args.title else final_text
 
     print('\n', final_text, '\n')
     save_response(transcript, final_text, outdir, args)

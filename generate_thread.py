@@ -1,6 +1,30 @@
 import json
 import argparse
 
+def retrieve_summary(json_file):
+    try:
+        with open(json_file, 'r') as f:
+            data = json.load(f)
+            summary = data.get('summary')
+            if not summary:
+                raise ValueError("JSON file must contain a 'summary' field")
+            
+            json_args = data.get('args')
+            if not json_args:
+                raise ValueError("JSON file must contain an 'args' key")
+
+            title = json_args.get('title')
+            channel = json_args.get('channel')
+            video_id = json_args.get('video_id')
+
+            if not all([title, channel, video_id]):
+                raise ValueError("'args' must contain 'title', 'channel', and 'video_id' fields")
+    except Exception as e:
+        print(f"Error reading JSON file: {e}")
+        return
+    return summary, title, channel, video_id
+
+
 def format_first_paragraph(title, channel):
     return (f"AI Research Highlights ✨ Distilling AI content into focused summaries "
             f"you can read in minutes. Today's video: {title} by {channel}\n"
@@ -51,33 +75,22 @@ def create_thread_paragraphs(summary, title=None, channel=None, video_id=None, v
     
     return paragraphs
 
+def save_thread(output_file, paragraphs):
+    try:
+        with open(output_file, 'w') as f:
+            f.write('\n\n'.join(paragraphs))
+        print(f"\nSaved to {output_file}")
+    except Exception as e:
+        print(f"Error saving output: {e}")
+
 def main():
     parser = argparse.ArgumentParser(description='Format JSON summary into thread paragraphs')
     parser.add_argument('json_file', help='Path to JSON file containing transcript and summary')
     parser.add_argument('--verbose', '-v', action='store_true', help='Print paragraphs')
     args = parser.parse_args()
     
-    # Read JSON file
-    try:
-        with open(args.json_file, 'r') as f:
-            data = json.load(f)
-            summary = data.get('summary')
-            if not summary:
-                raise ValueError("JSON file must contain a 'summary' field")
-            
-            json_args = data.get('args')
-            if not args:
-                raise ValueError("JSON file must contain an 'args' key")
-
-            title = json_args.get('title')
-            channel = json_args.get('channel')
-            video_id = json_args.get('video_id')
-
-            if not all([title, channel, video_id]):
-                raise ValueError("'args' must contain 'title', 'channel', and 'video_id' fields")
-    except Exception as e:
-        print(f"Error reading JSON file: {e}")
-        return
+    # Retrieve the json file containing the summary
+    summary, title, channel, video_id = retrieve_summary(args.json_file)
     
     # Create thread paragraphs
     paragraphs = create_thread_paragraphs(summary, title, channel, video_id, args.verbose)
@@ -89,13 +102,8 @@ def main():
             print(p + "\n")
     
     # Save to file if output path provided
-    try:
-        output_file = args.json_file.replace('.json', '.txt')
-        with open(output_file, 'w') as f:
-            f.write('\n\n'.join(paragraphs))
-        print(f"\nSaved to {output_file}")
-    except Exception as e:
-        print(f"Error saving output: {e}")
+    output_file = args.json_file.replace('.json', '_thread.txt')
+    save_thread(output_file, paragraphs)
 
 if __name__ == "__main__":
     main()

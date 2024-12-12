@@ -43,3 +43,4 @@ def save_response(args, transcript, summary):
     with open(output_file, "w", encoding="utf-8") as f: 
         json.dump(output, f)
     print(f"Response written to {output_file}\n")
+    return output_file

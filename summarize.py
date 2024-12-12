@@ -6,6 +6,7 @@ from utils import clean_transcript_string, save_response
 from langchain_openai import ChatOpenAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from dotenv import load_dotenv
+from generate_thread import create_thread_paragraphs, save_thread
 
 def main():
     parser = argparse.ArgumentParser()
@@ -77,12 +78,23 @@ def main():
     final_text = final_summary.content if hasattr(final_summary, 'content') else str(final_summary)
     
     # save response
-    save_response(args, transcript, final_text)
+    path_to_json = save_response(args, transcript, final_text)
 
-    # add title to final text
-    final_text = f"{args.title}\n\n" + final_text if args.title else final_text
+    # print summary
     if args.verbose:
+        print(args.title)
         print('\n', final_text, '\n')
+    
+    # create and save a thread
+    if args.create_thread:
+        paragraphs = create_thread_paragraphs(final_text, args.title, args.channel, video_id, args.verbose)
+        if args.verbose:
+            print("\nFormatted Thread:\n")
+            for p in paragraphs:
+                print(p + "\n")
+        output_file = path_to_json.replace('.json', '_thread.txt')
+        save_thread(output_file, paragraphs)
+
 
 if __name__ == "__main__":
     load_dotenv() # load environment variables from .env file

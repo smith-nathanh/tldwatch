@@ -1,4 +1,5 @@
 texts/
+schedule/
 __pycache__/
 .env
 .venv/

@@ -4,9 +4,10 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["langchain-openai==0.2.11", 
-"langchain-text-splitters==0.3.2", 
-"python-dotenv==1.0.1", 
-"youtube-transcript-api==0.6.3",
-"tweepy"
+dependencies = [
+    "langchain-openai==0.2.11",
+    "langchain-text-splitters==0.3.2",
+    "python-dotenv==1.0.1",
+    "tweepy>=4.14.0",
+    "youtube-transcript-api==0.6.3",
 ]

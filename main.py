@@ -1,19 +1,20 @@
 import os
+import logging
 import json
 from datetime import datetime
-import subprocess
-from pathlib import Path
-import tweepy
 import time
+import tweepy
+import argparse
 from dotenv import load_dotenv
+from summarizer import TranscriptSummarizer
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def load_twitter_api():
-    # Load environment variables from .env file
-    load_dotenv()
     
-    # Get X (Twitter) API credentials from environment variables
-    api_key = os.getenv('X_API_KEY')  # This is the consumer key
-    api_key_secret = os.getenv('X_API_KEY_SECRET')  # This is the consumer secret
+    api_key = os.getenv('X_API_KEY')
+    api_key_secret = os.getenv('X_API_KEY_SECRET')
     access_token = os.getenv('X_ACCESS_TOKEN')
     access_token_secret = os.getenv('X_ACCESS_TOKEN_SECRET')
     
@@ -33,60 +34,82 @@ def post_thread(content_list, client):
                 in_reply_to_tweet_id=previous_tweet_id
             )
             previous_tweet_id = response.data['id']
-            time.sleep(1)  # Rate limiting
+            time.sleep(1)
         except Exception as e:
-            print(f"Error posting tweet: {e}")
+            logging.error(f"Error posting tweet: {e}")
             break
 
 def main():
-    # Read schedule.json
-    try:
-        with open('schedule.json', 'r') as f:
-            schedule = json.load(f)
-    except FileNotFoundError:
-        print("schedule.json not found")
-        return
+    """Entry point to summarize YouTube video transcripts"""
+    parser = argparse.ArgumentParser(description='Summarize YouTube video transcripts and post to Twitter.')
+    parser.add_argument('--channel', help='The channel you are pulling from.')
+    parser.add_argument('--video_id', help='The video ID of the YouTube video.')
+    parser.add_argument('--title', help='The title to insert into the final text')
+    parser.add_argument('--model', default="gpt-4o", help='The model to use for the completion')
+    parser.add_argument('--prompt', default="prompt.json", help='The prompt to use for the completion')
+    parser.add_argument('--temperature', default=0.3, type=float, help='Temperature parameter of the model')
+    parser.add_argument('--chunk_size', default=4000, type=int, help='The maximum number of tokens to send to the model at once')
+    parser.add_argument('--do_not_post', action='store_true', help='Do not post the thread to Twitter')
+    parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose output')
+    args = parser.parse_args()
 
-    # Get today's date in the format used in schedule.json
-    today = datetime.now().strftime('%Y-%m-%d')
-    
-    # Check if today's entry exists
-    if today not in schedule:
-        print("No entry found for today")
-        return
+    if args.channel and args.video_id and args.title:
+        channel = args.channel
+        video_id = args.video_id
+        title = args.title
+    else:
+        try:
+            with open('schedule/schedule.json', 'r') as f:
+                schedule = json.load(f)
+        except FileNotFoundError:
+            logging.error("schedule.json not found")
+            return
 
-    today_entry = schedule[today]
-    
-    # Run summarize.py
-    cmd = [
-        "summarize.py",
-        "--channel", today_entry['channel'],
-        "--video_id", today_entry['video_id'],
-        "--title", today_entry['title'],
-        "--create_thread", "-v"
-    ]
-    
-    try:
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error running summarize.py: {e}")
-        return
+        today = datetime.now().strftime('%Y-%m-%d')
+        
+        if today not in schedule:
+            logging.error("No entry found for today")
+            return
 
-    # Read the generated thread file
-    thread_file = Path(f"{today_entry['video_id']}_thread.txt")
-    if not thread_file.exists():
-        print("Thread file not generated")
-        return
+        today_entry = schedule[today]
+        channel = today_entry['channel']
+        video_id = today_entry['video_id']
+        title = today_entry['title']
 
-    with open(thread_file, 'r') as f:
-        content = f.read()
+    model = args.model
+    prompt = args.prompt
+    temperature = args.temperature
+    chunk_size = args.chunk_size
+    verbose = args.verbose
+
+    summarizer = TranscriptSummarizer(
+        channel=channel,
+        video_id=video_id,
+        title=title,
+        model=model,
+        prompt=prompt,
+        temperature=temperature,
+        chunk_size=chunk_size,
+        verbose=verbose
+    )
     
-    # Split into paragraphs and filter empty lines
-    paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
-    
-    # Initialize Twitter API and post thread
+    summarizer.fetch_transcript()
+    summarizer.summarize()
+    summarizer.save_summary()
+    summarizer.generate_thread()
+
+    # Load Twitter API client
     twitter_client = load_twitter_api()
-    post_thread(paragraphs, twitter_client)
+
+    # Read the generated thread from the file
+    thread_file = summarizer.output_file.replace('.json', '_thread.txt')
+    with open(thread_file, 'r') as f:
+        thread_content = f.read().split('\n\n')
+
+    # Post the thread to Twitter
+    if not args.do_not_post:
+        post_thread(thread_content, twitter_client)
 
 if __name__ == "__main__":
+    load_dotenv()
     main()

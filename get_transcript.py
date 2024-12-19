@@ -1,6 +1,7 @@
-from youtube_transcript_api import YouTubeTranscriptApi
-import argparse
 import os
+import logging
+import argparse
+from youtube_transcript_api import YouTubeTranscriptApi
 
 
 def main():
@@ -26,7 +27,7 @@ def main():
     text = ' '.join([line['text'] for line in transcript])
     with open(output_file, 'w') as f:
         f.write(text)
-    print("Transcript saved to", output_file)
+    logging.info("Transcript saved to", output_file)
 
 
 if __name__ == "__main__":

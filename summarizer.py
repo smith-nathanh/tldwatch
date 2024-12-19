@@ -79,7 +79,6 @@ class TranscriptSummarizer:
         thread_file = self.output_file.replace('.json', '_thread.txt')
         self._save_thread(thread_file, paragraphs)
         if self.verbose:
-            logging.info(f"Thread saved to {thread_file}")
             logging.info("\n".join(paragraphs))
 
     def _clean_transcript_string(self, text):
@@ -104,6 +103,7 @@ class TranscriptSummarizer:
         }
         with open(output_file, 'w') as f:
             json.dump(response, f, indent=4)
+        logging.info(f"Summary saved to {output_file}")
         return output_file
 
     def _create_thread_paragraphs(self, summary, title=None, channel=None, video_id=None, verbose=True):
@@ -154,6 +154,6 @@ class TranscriptSummarizer:
         try:
             with open(output_file, 'w') as f:
                 f.write('\n\n'.join(paragraphs))
-            logging.info(f"\nSaved to {output_file}")
+            logging.info(f"\nThread saved to {output_file}")
         except Exception as e:
             logging.error(f"Error saving output: {e}")

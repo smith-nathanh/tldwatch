@@ -8,14 +8,18 @@ This repository provides a module to summarize YouTube video transcripts using t
 - **Text Processing**: Cleans and splits the transcript text into manageable chunks for processing.
 - **Summarization**: Utilizes OpenAI's language models to generate summaries of the transcripts.
 - **Output**: Saves the original transcript and the generated summary to specified directories.
+- **Twitter Integration**: Posts the generated summary as a thread on Twitter.
 
 ## File Structure
 
-- **summarize.py**: Main script to fetch transcripts and generate summaries.
+- **main.py**: Entry point to summarize YouTube video transcripts and post to Twitter.
 - **get_transcript.py**: Module to retrieve transcripts from YouTube videos.
-- **utils.py**: Utility functions for processing and summarizing text.
+- **summarizer.py**: Module to process and summarize transcripts.
+- **tests/x_api_test.py**: Unit tests and X api test.
 - **requirements.txt**: List of dependencies required for the project.
 - **README.md**: This file.
+- **prompt.json**: JSON file containing prompts for summarization.
+- **schedule/schedule.json**: JSON file containing the schedule for video summarization.
 
 ## Installation
 
@@ -34,21 +38,33 @@ This repository provides a module to summarize YouTube video transcripts using t
 
 ## Usage
 
-To summarize a YouTube video transcript, run the following command:
+To summarize a YouTube video transcript and optionally post it to Twitter, run the following command:
 
 ```sh
-python summarize.py --channel <channel_name> --video_id <video_id>
+python main.py --channel <channel_name> --video_id <video_id> --title <video_title>
 ```
 
-## Example
+### Options
+
+- `--channel`: The channel you are pulling from.
+- `--video_id`: The video ID of the YouTube video.
+- `--title`: The title to insert into the final text.
+- `--model`: The model to use for the completion (default: "gpt-4o").
+- `--prompt`: The prompt to use for the completion (default: "prompt.json").
+- `--temperature`: Temperature parameter of the model (default: 0.3).
+- `--chunk_size`: The maximum number of tokens to send to the model at once (default: 4000).
+- `--do_not_post`: Do not post the thread to Twitter.
+- `--verbose` or `-v`: Enable verbose output.
+
+### Example
 
 ```sh
-python summarize.py --channel patel --video_id "UakqL6Pj9xo"
+python main.py --channel "Berkeley RDI Center on Decentralization & AI" --video_id "-yf-e-9FvOc" --title "CS 194/294-196 (LLM Agents) - Lecture 7, Nicolas Chapados and Alexandre Drouin"
 ```
 
 ## Configuration
 
-Ensure you have your OpenAI API key set in a `.env` file:
+Ensure you have your OpenAI API key and Twitter API keys set in a `.env` file:
 
 Create a `.env` file in the root of your project and add the following lines (langchain keys and endpoints are optional):
 
@@ -58,4 +74,8 @@ LANGCHAIN_API_KEY="your key"
 LANGCHAIN_TRACING_V2="true"
 LANGCHAIN_PROJECT="yt-transcripts"
 LANGCHAIN_ENDPOINT="https://api.smith.langchain.com"
+X_API_KEY="your key"
+X_API_KEY_SECRET="your key"
+X_ACCESS_TOKEN="your token"
+X_ACCESS_TOKEN_SECRET="your token"
 ```

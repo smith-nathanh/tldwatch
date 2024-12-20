@@ -1,10 +1,11 @@
 import os
-import logging
+import time
 import json
 from datetime import datetime
-import time
-import tweepy
+import logging
 import argparse
+import requests
+import tweepy
 from dotenv import load_dotenv
 from summarizer import TranscriptSummarizer
 
@@ -12,7 +13,7 @@ from summarizer import TranscriptSummarizer
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def load_twitter_api():
-    
+    load_dotenv()
     api_key = os.getenv('X_API_KEY')
     api_key_secret = os.getenv('X_API_KEY_SECRET')
     access_token = os.getenv('X_ACCESS_TOKEN')
@@ -28,16 +29,27 @@ def load_twitter_api():
 def post_thread(content_list, client):
     previous_tweet_id = None
     for content in content_list:
-        try:
-            response = client.create_tweet(
-                text=content,
-                in_reply_to_tweet_id=previous_tweet_id
-            )
-            previous_tweet_id = response.data['id']
-            time.sleep(1)
-        except Exception as e:
-            logging.error(f"Error posting tweet: {e}")
-            break
+        retries = 5
+        for i in range(retries):
+            try:
+                response = client.create_tweet(
+                    text=content,
+                    in_reply_to_tweet_id=previous_tweet_id
+                )
+                previous_tweet_id = response.data['id']
+                time.sleep(1)
+                break
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 429:
+                    wait_time = 2 ** i
+                    logging.error(f"Error posting tweet: {e} - Retrying in {wait_time} seconds")
+                    time.sleep(wait_time)
+                else:
+                    logging.error(f"Error posting tweet: {e}")
+                    break
+            except Exception as e:
+                logging.error(f"Error posting tweet: {e}")
+                break
 
 def main():
     """Entry point to summarize YouTube video transcripts"""

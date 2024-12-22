@@ -29,31 +29,36 @@
         "title": "CS 194/294-196 (LLM Agents) - Lecture 7, Nicolas Chapados and Alexandre Drouin",
         "url": "https://www.youtube.com/watch?v=-yf-e-9FvOc"
     },
-    "2024-12-20": {
+    "2024-12-22": {
+        "model": "qwen2.5:1.5b",
         "channel": "Berkeley RDI Center on Decentralization & AI",
         "video_id": "wm9-7VBpdEo",
         "title": "CS 194/294-196 (LLM Agents) - Lecture 8, Yuandong Tian",
         "url": "https://www.youtube.com/watch?v=wm9-7VBpdEo"
     },
-    "2024-12-21": {
+    "2024-12-23": {
+        "model": "qwen2.5:1.5b",
         "channel": "Berkeley RDI Center on Decentralization & AI",
         "video_id": "Qhxr0uVT2zs",
         "title": "CS 194/294-196 (LLM Agents) - Lecture 9, Jim Fan",
         "url": "https://www.youtube.com/watch?v=Qhxr0uVT2zs"
     },
-    "2024-12-22": {
+    "2024-12-24": {
+        "model": "qwen2.5:1.5b",
         "channel": "Berkeley RDI Center on Decentralization & AI",
         "video_id": "f3KKx9LWntQ",
         "title": "CS 194/294-196 (LLM Agents) - Lecture 10, Percy Liang",
         "url": "https://www.youtube.com/watch?v=f3KKx9LWntQ"
     },
-    "2024-12-23": {
+    "2024-12-25": {
+        "model": "qwen2.5:1.5b",
         "channel": "Berkeley RDI Center on Decentralization & AI",
         "video_id": "6y2AnWol7oo",
         "title": "CS 194/294-196 (LLM Agents) - Lecture 11, Ben Mann",
         "url": "https://www.youtube.com/watch?v=6y2AnWol7oo"
     },
-    "2024-12-24": {
+    "2024-12-26": {
+        "model": "qwen2.5:1.5b",
         "channel": "Berkeley RDI Center on Decentralization & AI",
         "video_id": "QAgR4uQ15rc",
         "title": "CS 194/294-196 (LLM Agents) - Lecture 12, Dawn Song",

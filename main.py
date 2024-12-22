@@ -4,7 +4,6 @@ import json
 from datetime import datetime
 import logging
 import argparse
-import requests
 import tweepy
 from dotenv import load_dotenv
 from summarizer import TranscriptSummarizer
@@ -19,37 +18,43 @@ def load_twitter_api():
     access_token = os.getenv('X_ACCESS_TOKEN')
     access_token_secret = os.getenv('X_ACCESS_TOKEN_SECRET')
     
-    return tweepy.Client(
+    client = tweepy.Client(
         consumer_key=api_key,
         consumer_secret=api_key_secret,
         access_token=access_token,
-        access_token_secret=access_token_secret
+        access_token_secret=access_token_secret,
+        wait_on_rate_limit=True
     )
+    return client
 
 def post_thread(content_list, client):
     previous_tweet_id = None
-    for content in content_list:
-        retries = 5
-        for i in range(retries):
+    
+    for i, content in enumerate(content_list):
+        retries = 3  # Reduced retries since wait_on_rate_limit handles most rate limit issues
+        retry_count = 0
+        
+        while retry_count < retries:
             try:
+                # Post the tweet - Tweepy will automatically wait if we hit rate limits
                 response = client.create_tweet(
                     text=content,
                     in_reply_to_tweet_id=previous_tweet_id
                 )
                 previous_tweet_id = response.data['id']
+                logging.info(f"Posted tweet {i+1}/{len(content_list)}")
+                
+                # Small delay between tweets for safety
                 time.sleep(1)
                 break
-            except requests.exceptions.HTTPError as e:
-                if e.response.status_code == 429:
-                    wait_time = 2 ** i
-                    logging.error(f"Error posting tweet: {e} - Retrying in {wait_time} seconds")
-                    time.sleep(wait_time)
-                else:
-                    logging.error(f"Error posting tweet: {e}")
-                    break
+                
             except Exception as e:
-                logging.error(f"Error posting tweet: {e}")
-                break
+                retry_count += 1
+                if not isinstance(e, tweepy.errors.TooManyRequests):
+                    logging.error(f"Error posting tweet {i+1}: {str(e)}")
+                    if retry_count == retries:
+                        logging.error(f"Failed to post tweet after {retries} attempts. Continuing with thread...")
+                    time.sleep(5)  # Basic delay before retry for non-rate-limit errors
 
 def main():
     """Entry point to summarize YouTube video transcripts"""
@@ -69,6 +74,7 @@ def main():
         channel = args.channel
         video_id = args.video_id
         title = args.title
+        today_entry = {}
     else:
         try:
             with open('schedule/schedule.json', 'r') as f:
@@ -84,15 +90,15 @@ def main():
             return
 
         today_entry = schedule[today]
-        channel = today_entry['channel']
-        video_id = today_entry['video_id']
-        title = today_entry['title']
 
-    model = args.model
-    prompt = args.prompt
-    temperature = args.temperature
-    chunk_size = args.chunk_size
-    verbose = args.verbose
+    model = today_entry.get('model', args.model)
+    channel = today_entry.get('channel', args.channel)
+    video_id = today_entry.get('video_id', args.video_id)
+    title = today_entry.get('title', args.title)
+    prompt = today_entry.get('prompt', args.prompt)
+    temperature = today_entry.get('temperature', args.temperature)  
+    chunk_size = today_entry.get('chunk_size', args.chunk_size)
+    verbose = today_entry.get('verbose', args.verbose)
 
     summarizer = TranscriptSummarizer(
         channel=channel,

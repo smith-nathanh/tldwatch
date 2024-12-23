@@ -12,7 +12,6 @@ from summarizer import TranscriptSummarizer
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def load_twitter_api():
-    load_dotenv()
     api_key = os.getenv('X_API_KEY')
     api_key_secret = os.getenv('X_API_KEY_SECRET')
     access_token = os.getenv('X_ACCESS_TOKEN')
@@ -66,7 +65,7 @@ def main():
     parser.add_argument('--prompt', default="prompt.json", help='The prompt to use for the completion')
     parser.add_argument('--temperature', default=0.3, type=float, help='Temperature parameter of the model')
     parser.add_argument('--chunk_size', default=4000, type=int, help='The maximum number of tokens to send to the model at once')
-    parser.add_argument('--do_not_post', action='store_true', help='Do not post the thread to Twitter')
+    parser.add_argument('--no_post', action='store_true', help='Do not post the thread to Twitter')
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose output')
     args = parser.parse_args()
 
@@ -124,8 +123,8 @@ def main():
     with open(thread_file, 'r') as f:
         thread_content = f.read().split('\n\n')
 
-    # Post the thread to Twitter
-    if not args.do_not_post:
+    # option to skip posting to Twitter
+    if not args.no_post:
         post_thread(thread_content, twitter_client)
 
 if __name__ == "__main__":

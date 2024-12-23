@@ -37,7 +37,7 @@
         "url": "https://www.youtube.com/watch?v=wm9-7VBpdEo"
     },
     "2024-12-23": {
-        "model": "qwen2.5:1.5b",
+        "model": "llama3.1:latest",
         "channel": "Berkeley RDI Center on Decentralization & AI",
         "video_id": "Qhxr0uVT2zs",
         "title": "CS 194/294-196 (LLM Agents) - Lecture 9, Jim Fan",

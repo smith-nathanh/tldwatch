@@ -53,8 +53,10 @@ class TranscriptSummarizer:
                     logging.error(f"Error initializing Ollama: {e}")
             else:
                 # Check if the model is one of the specified models for ChatCerebras
-                cerebras_models = ['llama3.1-8b', 'llama3.1-70b', 'llama-3.3-70b']
+                cerebras_models = ['llama3.1-8b', 'llama3.1-70b']
                 if self.model in cerebras_models:
+                    if not os.getenv("CEREBRAS_API_KEY"):
+                        raise ValueError("CEREBRAS_API_KEY not found in environment variables")
                     try:
                         logging.info(f"Attempting to use Cerebras model: {self.model}")
                         return ChatCerebras(
@@ -65,18 +67,22 @@ class TranscriptSummarizer:
                         logging.error(f"Error initializing Cerebras: {e}")
                 else:
                     logging.info(f"Cerebras model {self.model} not available")
-                
+        
         # Only try OpenAI if the model doesn't look like an Ollama or Cerebras model
         logging.info("Using ChatOpenAI")
         
         if not os.getenv("OPENAI_API_KEY"):
             raise ValueError("OPENAI_API_KEY not found in environment variables")
         
-        return ChatOpenAI(
-            temperature=self.temperature,
-            model_name=self.model,
-            verbose=self.verbose
-        )
+        try:
+            return ChatOpenAI(
+                temperature=self.temperature,
+                model_name=self.model,
+                verbose=self.verbose
+            )
+        except Exception as e:
+            logging.error(f"Error initializing ChatOpenAI: {e}")
+            raise
     
     def fetch_transcript(self):
         raw_transcript = YouTubeTranscriptApi.get_transcript(self.video_id)

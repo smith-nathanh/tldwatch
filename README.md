@@ -1,12 +1,15 @@
 # YouTube Transcript Summarizer
 
-This repository provides a module to summarize YouTube video transcripts using the OpenAI API. It retrieves transcripts from YouTube videos, processes them, and generates concise summaries.
+This repository provides a module to summarize YouTube video transcripts using various AI models including OpenAI, Cerebras, and Ollama. It retrieves transcripts from YouTube videos, processes them, and generates concise summaries.
 
 ## Features
 
 - **Transcript Retrieval**: Fetches transcripts from YouTube videos using the `YouTubeTranscriptApi`.
 - **Text Processing**: Cleans and splits the transcript text into manageable chunks for processing.
-- **Summarization**: Utilizes OpenAI's language models to generate summaries of the transcripts.
+- **Multiple Model Support**: 
+  - OpenAI models (GPT-3.5, GPT-4)
+  - Cerebras models (llama3.1-8b, llama3.1-70b)
+  - Local Ollama models (Llama, Mistral, etc.)
 - **Output**: Saves the original transcript and the generated summary to specified directories.
 - **Twitter Integration**: Posts the generated summary as a thread on Twitter.
 
@@ -38,10 +41,10 @@ This repository provides a module to summarize YouTube video transcripts using t
 
 ## Usage
 
-To summarize a YouTube video transcript and optionally post it to Twitter, run the following command:
+To summarize a YouTube video transcript run the following command (option to not post a thread to t)
 
 ```sh
-python main.py --channel <channel_name> --video_id <video_id> --title <video_title>
+python main.py --channel <channel_name> --video_id <video_id> --title <video_title> --model <model_name>
 ```
 
 ### Options
@@ -53,7 +56,7 @@ python main.py --channel <channel_name> --video_id <video_id> --title <video_tit
 - `--prompt`: The prompt to use for the completion (default: "prompt.json").
 - `--temperature`: Temperature parameter of the model (default: 0.3).
 - `--chunk_size`: The maximum number of tokens to send to the model at once (default: 4000).
-- `--do_not_post`: Do not post the thread to Twitter.
+- `--post`: Generate and post thread to Twitter.
 - `--verbose` or `-v`: Enable verbose output.
 
 ### Example
@@ -70,6 +73,7 @@ Create a `.env` file in the root of your project and add the following lines (la
 
 ```sh
 OPENAI_API_KEY="your key"
+CEREBRAS_API_KEY="your key"
 LANGCHAIN_API_KEY="your key"
 LANGCHAIN_TRACING_V2="true"
 LANGCHAIN_PROJECT="yt-transcripts"

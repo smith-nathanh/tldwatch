@@ -85,8 +85,10 @@ class Scheduler:
             return datetime.now().strftime("%Y-%m-%d")
             
         last_date = max(schedule.keys())
-        next_date = datetime.strptime(last_date, "%Y-%m-%d")
-        next_date = next_date.replace(day=next_date.day + 1)
+        current_date = datetime.strptime(last_date, "%Y-%m-%d")
+        # Use timedelta to automatically handle month/year transitions
+        from datetime import timedelta
+        next_date = current_date + timedelta(days=1)
         return next_date.strftime("%Y-%m-%d")
 
     def add_video(self, url: str, date: Optional[str] = None, model: str = "llama3.1-70b"):
@@ -166,24 +168,16 @@ if __name__ == "__main__":
     )
     main()
 
-# Run the script with the following commands:
+    # Usage examples:
 
-# Add video to next available date
-# python scheduler.py add --url "https://youtube.com/watch?v=example"
+    # Add video to next available date
+    # python scheduler.py add --url "https://youtube.com/watch?v=example"
 
-# # Add video with specific date and model
-# python scheduler.py add --url "https://youtube.com/watch?v=example" --date "2024-12-31" --model "gpt-4"
+    # # Add video with specific date and model
+    # python scheduler.py add --url "https://youtube.com/watch?v=example" --date "2024-12-31" --model "gpt-4"
 
-# # Add video with different model but auto date
-# python scheduler.py add --url "https://youtube.com/watch?v=example" --model "qwen2.5:1.5b"
+    # # Add video with different model but auto date
+    # python scheduler.py add --url "https://youtube.com/watch?v=example" --model "qwen2.5:1.5b"
 
-# # Remove video for specific date
-# python scheduler.py add --date "2024-12-31"
-
-    # "2024-12-29": {
-    #     "model": "llama3.1-70b",
-    #     "channel": "Machine Learning Street Talk",
-    #     "video_id": "s7_NlkBwdj8",
-    #     "title": "It's Not About Scale, It's About Abstraction",
-    #     "url": "https://www.youtube.com/watch?v=s7_NlkBwdj8"
-    # }
+    # # Remove video for specific date
+    # python scheduler.py remove --date "2024-12-31"

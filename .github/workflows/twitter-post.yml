@@ -6,28 +6,27 @@ on:
 
 jobs:
   post-tweet:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
 
-    - name: Install uv
-      run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
-    - name: Run posting script
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
-        CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
-        X_API_KEY: ${{ secrets.X_API_KEY }}
-        X_API_KEY_SECRET: ${{ secrets.X_API_KEY_SECRET }}
-        X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
-        X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
-      run: |
-        cd transcripts
-        uv run main.py
+      - name: Run posting script
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_KEY_SECRET: ${{ secrets.X_API_KEY_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+        run: |
+          uv run main.py --post

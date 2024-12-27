@@ -58,7 +58,7 @@
         "url": "https://www.youtube.com/watch?v=6y2AnWol7oo"
     },
     "2024-12-27": {
-        "model": "llama3.1-8b",
+        "model": "llama3.1-70b",
         "channel": "Berkeley RDI Center on Decentralization & AI",
         "video_id": "QAgR4uQ15rc",
         "title": "CS 194/294-196 (LLM Agents) - Lecture 12, Dawn Song",

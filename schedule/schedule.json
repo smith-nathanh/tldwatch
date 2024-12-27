@@ -57,14 +57,18 @@
         "title": "CS 194/294-196 (LLM Agents) - Lecture 11, Ben Mann",
         "url": "https://www.youtube.com/watch?v=6y2AnWol7oo"
     },
-    "2024-12-27": {
+    "2024-12-28": {
         "model": "llama3.1-70b",
         "channel": "Berkeley RDI Center on Decentralization & AI",
         "video_id": "QAgR4uQ15rc",
         "title": "CS 194/294-196 (LLM Agents) - Lecture 12, Dawn Song",
         "url": "https://www.youtube.com/watch?v=QAgR4uQ15rc"
+    },
+    "2024-12-29": {
+        "channel": "Machine Learning Street Talk",
+        "video_id": "s7_NlkBwdj8",
+        "title": "It's Not About Scale, It's About Abstraction",
+        "url": "https://www.youtube.com/watch?v=s7_NlkBwdj8",
+        "model": "llama3.1-70b"
     }
 }
-
-
-

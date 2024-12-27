@@ -2,7 +2,7 @@ name: Daily Twitter Post
 
 on:
   schedule:
-    - cron: '0 10 * * *'  # Runs at 10:00 UTC daily
+    - cron: '0 15 * * *'  # 10:00 AM EST = 15:00 UTC
 
 jobs:
   post-tweet:

@@ -51,7 +51,7 @@
         "url": "https://www.youtube.com/watch?v=f3KKx9LWntQ"
     },
     "2024-12-26": {
-        "model": "llama3.1-8b",
+        "model": "llama3.1-70b",
         "channel": "Berkeley RDI Center on Decentralization & AI",
         "video_id": "6y2AnWol7oo",
         "title": "CS 194/294-196 (LLM Agents) - Lecture 11, Ben Mann",

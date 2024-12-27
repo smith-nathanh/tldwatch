@@ -1,4 +1,4 @@
 {
     "map_prompt": "Write a concise summary of this video transcript section:\n{text}\nCONCISE SUMMARY:",
-    "combine_prompt": "Below are summaries from different sections of the same video.\nCreate a single coherent summary that captures the key points (avoid saying the word 'delves' during your summarization):\n\n{text}\n\nFINAL SUMMARY:"
+    "combine_prompt": "Below are summaries from different sections of the same video.\nCreate a single coherent summary that captures the key points (avoid saying the word 'delves' during your summarization, avoid second or third person pronouns, and don't repeat these directions in your summary, try to introduce the speaker in the beginning if they've given their bio):\n\n{text}\n\nFINAL SUMMARY:"
 }

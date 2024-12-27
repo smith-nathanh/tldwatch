@@ -30,12 +30,11 @@ class TranscriptSummarizer:
             response = requests.get("http://localhost:11434/api/tags", timeout=2)
             if response.status_code == 200:
                 models = response.json().get('models', [])
-                # Create a dict of name:id pairs
-                return {model['name']: model['id'] for model in models}
-            return {}
+                return [model['name'] for model in models]
+            return []
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
             logging.info("Could not connect to Ollama service")
-            return {}
+            return []
 
     def _initialize_llm(self):
         """Initialize either Ollama or ChatOpenAI based on model name"""

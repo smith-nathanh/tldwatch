@@ -58,7 +58,8 @@
         "url": "https://www.youtube.com/watch?v=6y2AnWol7oo"
     },
     "2024-12-28": {
-        "model": "llama3.1-70b",
+        "model": "llama-3.3-70b-versatile",
+        "provider": "groq",
         "channel": "Berkeley RDI Center on Decentralization & AI",
         "video_id": "QAgR4uQ15rc",
         "title": "CS 194/294-196 (LLM Agents) - Lecture 12, Dawn Song",
@@ -69,27 +70,31 @@
         "video_id": "s7_NlkBwdj8",
         "title": "It's Not About Scale, It's About Abstraction",
         "url": "https://www.youtube.com/watch?v=s7_NlkBwdj8",
-        "model": "llama3.1-70b"
+        "model": "llama-3.3-70b-versatile",
+        "provider": "groq"
     },
     "2024-12-30": {
         "channel": "Machine Learning Street Talk",
         "video_id": "JTU8Ha4Jyfc",
         "title": "Pattern Recognition vs True Intelligence - Francois Chollet",
         "url": "https://www.youtube.com/watch?v=JTU8Ha4Jyfc",
-        "model": "gpt-4o"
+        "model": "llama-3.3-70b-versatile",
+        "provider": "groq"
     },
     "2024-12-31": {
         "channel": "Machine Learning Street Talk",
         "video_id": "C6sSs6NgANo",
         "title": "Test-Time Adaptation: A New Frontier in AI",
         "url": "https://www.youtube.com/watch?v=C6sSs6NgANo",
-        "model": "gpt-4o"
+        "model": "llama-3.3-70b-versatile",
+        "provider": "groq"
     },
     "2025-01-01": {
         "channel": "Stanford Online",
         "video_id": "vRTcE19M-KE",
         "title": "Stanford Webinar - Large Language Models Get the Hype, but Compound Systems Are the Future of AI",
         "url": "https://www.youtube.com/watch?v=vRTcE19M-KE",
-        "model": "gpt-4o"
+        "model": "llama-3.3-70b-versatile",
+        "provider": "groq"
     }
 }

@@ -62,6 +62,7 @@ def main():
     parser.add_argument('--video_id', help='The video ID of the YouTube video.')
     parser.add_argument('--title', help='The title to insert into the final text')
     parser.add_argument('--model', default="gpt-4o", help='The model to use for the completion')
+    parser.add_argument('--provider', default="openai", help='The provider of the model')
     parser.add_argument('--prompt', default="prompt.json", help='The prompt to use for the completion')
     parser.add_argument('--temperature', default=0.3, type=float, help='Temperature parameter of the model')
     parser.add_argument('--chunk_size', default=4000, type=int, help='The maximum number of tokens to send to the model at once')
@@ -92,6 +93,7 @@ def main():
         video_id=today_entry.get('video_id', args.video_id),
         title=today_entry.get('title', args.title),
         model=today_entry.get('model', args.model),
+        provider=today_entry.get('provider', args.provider),
         prompt=today_entry.get('prompt', args.prompt),
         temperature=today_entry.get('temperature', args.temperature),
         chunk_size=today_entry.get('chunk_size', args.chunk_size),

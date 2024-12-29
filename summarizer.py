@@ -7,14 +7,16 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from langchain_openai import ChatOpenAI
 from langchain_ollama import ChatOllama
 from langchain_cerebras import ChatCerebras
+from langchain_groq import ChatGroq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 class TranscriptSummarizer:
-    def __init__(self, channel, video_id, title='', model="gpt-4o", prompt="prompt.json", temperature=0.3, chunk_size=4000, verbose=False):
+    def __init__(self, channel, video_id, title='', model="gpt-4o", provider='openai', prompt="prompt.json", temperature=0.3, chunk_size=4000, verbose=False):
         self.channel = channel
         self.video_id = video_id
         self.title = title
         self.model = model
+        self.provider = provider
         self.prompt = prompt
         self.temperature = temperature
         self.chunk_size = chunk_size
@@ -37,9 +39,8 @@ class TranscriptSummarizer:
             return []
 
     def _initialize_llm(self):
-        """Initialize either Ollama or ChatOpenAI based on model name"""
-        # First check if model name suggests Ollama use
-        if ':' in self.model or self.model.lower().startswith(('llama', 'mistral', 'dolphin')):
+        """Initialize an LLM based on the provider and model"""
+        if self.provider == 'ollama':
             ollama_models = self._get_available_ollama_models()
             if self.model in ollama_models:
                 try:
@@ -50,29 +51,45 @@ class TranscriptSummarizer:
                     )
                 except Exception as e:
                     logging.error(f"Error initializing Ollama: {e}")
+        
+        if self.provider == 'cerebras':
+            # Check if the model is one of the specified models for ChatCerebras
+            cerebras_models = ['llama3.1-8b', 'llama3.1-70b']
+            if self.model in cerebras_models:
+                if not os.getenv("CEREBRAS_API_KEY"):
+                    raise ValueError("CEREBRAS_API_KEY not found in environment variables")
+                try:
+                    logging.info(f"Using Cerebras model: {self.model}")
+                    return ChatCerebras(
+                        model=self.model,
+                        temperature=self.temperature
+                    )
+                except Exception as e:
+                    logging.error(f"Error initializing Cerebras: {e}")
             else:
-                # Check if the model is one of the specified models for ChatCerebras
-                cerebras_models = ['llama3.1-8b', 'llama3.1-70b']
-                if self.model in cerebras_models:
-                    if not os.getenv("CEREBRAS_API_KEY"):
-                        raise ValueError("CEREBRAS_API_KEY not found in environment variables")
-                    try:
-                        logging.info(f"Attempting to use Cerebras model: {self.model}")
-                        return ChatCerebras(
-                            model=self.model,
-                            temperature=self.temperature
-                        )
-                    except Exception as e:
-                        logging.error(f"Error initializing Cerebras: {e}")
-                else:
-                    logging.info(f"Cerebras model {self.model} not available")
+                logging.info(f"Cerebras model {self.model} not available")
         
-        # Only try OpenAI if the model doesn't look like an Ollama or Cerebras model
+        if self.provider == "groq":
+            # Check if the model is one of the specified models for ChatGroq
+            groq_models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768']
+            if self.model in groq_models:
+                if not os.getenv("GROQ_API_KEY"):
+                    raise ValueError("GROQ_API_KEY not found in environment variables")
+                try:
+                    logging.info(f"Using Groq model: {self.model}")
+                    return ChatGroq(
+                        model=self.model,
+                        temperature=self.temperature
+                    )
+                except Exception as e:
+                    logging.error(f"Error initializing ChatGroq: {e}")
+            else:
+                logging.info(f"Groq model {self.model} not available")
+
+        # Use OpenAI as default/fallback
         logging.info("Using ChatOpenAI")
-        
         if not os.getenv("OPENAI_API_KEY"):
             raise ValueError("OPENAI_API_KEY not found in environment variables")
-        
         try:
             return ChatOpenAI(
                 temperature=self.temperature,

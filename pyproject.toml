@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "google-api-python-client>=2.156.0",
     "langchain-cerebras>=0.4.0",
+    "langchain-groq>=0.2.2",
     "langchain-ollama>=0.2.2",
     "langchain-openai==0.2.11",
     "langchain-text-splitters==0.3.2",

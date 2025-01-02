@@ -77,9 +77,7 @@
         "channel": "Machine Learning Street Talk",
         "video_id": "JTU8Ha4Jyfc",
         "title": "Pattern Recognition vs True Intelligence - Francois Chollet",
-        "url": "https://www.youtube.com/watch?v=JTU8Ha4Jyfc",
-        "model": "llama-3.3-70b-versatile",
-        "provider": "groq"
+        "url": "https://www.youtube.com/watch?v=JTU8Ha4Jyfc"
     },
     "2024-12-31": {
         "channel": "Machine Learning Street Talk",
@@ -96,5 +94,152 @@
         "url": "https://www.youtube.com/watch?v=vRTcE19M-KE",
         "model": "llama-3.3-70b-versatile",
         "provider": "groq"
+    },
+    "2025-01-02": {
+        "channel": "Graham Neubig",
+        "video_id": "6NeTO61qc4M",
+        "title": "CMU Advanced NLP 2024 (1): Introduction to NLP",
+        "url": "https://www.youtube.com/watch?v=6NeTO61qc4M",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-03": {
+        "channel": "Graham Neubig",
+        "video_id": "wa61zdcKWyU",
+        "title": "CMU Advanced NLP 2024 (2): Word Representation and Text Classification",
+        "url": "https://www.youtube.com/watch?v=wa61zdcKWyU",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-04": {
+        "channel": "Graham Neubig",
+        "video_id": "69EAJOwV3Es",
+        "title": "CMU Advanced NLP 2024 (3): Language Modeling",
+        "url": "https://www.youtube.com/watch?v=69EAJOwV3Es",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-05": {
+        "channel": "Graham Neubig",
+        "video_id": "x3U2zVhrgJ8",
+        "title": "CMU Advanced NLP 2024 (4): Sequence Modeling",
+        "url": "https://www.youtube.com/watch?v=x3U2zVhrgJ8",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-06": {
+        "channel": "Graham Neubig",
+        "video_id": "QkGwxtALTLU",
+        "title": "CMU Advanced NLP 2024 (5): Transformers",
+        "url": "https://www.youtube.com/watch?v=QkGwxtALTLU",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-07": {
+        "channel": "Graham Neubig",
+        "video_id": "96MMXDA7F74",
+        "title": "CMU Advanced NLP 2024 (6): Generation Algorithms",
+        "url": "https://www.youtube.com/watch?v=96MMXDA7F74",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-08": {
+        "channel": "Graham Neubig",
+        "video_id": "T1YrTbTkUb4",
+        "title": "CMU Advanced NLP 2024 (7): Prompting",
+        "url": "https://www.youtube.com/watch?v=T1YrTbTkUb4",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-09": {
+        "channel": "Graham Neubig",
+        "video_id": "KLJ3EEo8aPU",
+        "title": "CMU Advanced NLP 2024 (8): Fine-tuning and Instruction Tuning",
+        "url": "https://www.youtube.com/watch?v=KLJ3EEo8aPU",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-10": {
+        "channel": "Graham Neubig",
+        "video_id": "IEFPSsu0Obg",
+        "title": "CMU Advanced NLP 2024 (9): Experimental Design and Human Annotation",
+        "url": "https://www.youtube.com/watch?v=IEFPSsu0Obg",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-11": {
+        "channel": "Graham Neubig",
+        "video_id": "WQYi-1mvGDM",
+        "title": "CMU Advanced NLP 2024 (10): Retrieval and RAG",
+        "url": "https://www.youtube.com/watch?v=WQYi-1mvGDM",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-12": {
+        "channel": "Graham Neubig",
+        "video_id": "s9yyH3RPhdM",
+        "title": "CMU Advanced NLP 2024 (11): Distillation, Quantization, and Pruning",
+        "url": "https://www.youtube.com/watch?v=s9yyH3RPhdM",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-13": {
+        "channel": "Graham Neubig",
+        "video_id": "NX0l1M0NWPM",
+        "title": "CMU Advanced NLP 2024 (12): Reinforcement Learning",
+        "url": "https://www.youtube.com/watch?v=NX0l1M0NWPM",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-14": {
+        "channel": "Graham Neubig",
+        "video_id": "c4UwOq2J9mQ",
+        "title": "CMU Advanced NLP 2024 (13): Debugging and Interpretation",
+        "url": "https://www.youtube.com/watch?v=c4UwOq2J9mQ",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-15": {
+        "channel": "Graham Neubig",
+        "video_id": "MueCRSZ3RQ0",
+        "title": "CMU Advanced NLP 2024 (14): Ensembling and Mixture of Experts",
+        "url": "https://www.youtube.com/watch?v=MueCRSZ3RQ0",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-16": {
+        "channel": "Graham Neubig",
+        "video_id": "2rOSrDtg7HQ",
+        "title": "CMU Advanced NLP 2024 (15): A Tour of Modern Large Language Models",
+        "url": "https://www.youtube.com/watch?v=2rOSrDtg7HQ",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-17": {
+        "channel": "Graham Neubig",
+        "video_id": "bN2ZZieBXsE",
+        "title": "CMU Advanced NLP 2024 (17): Code Generation",
+        "url": "https://www.youtube.com/watch?v=bN2ZZieBXsE",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-18": {
+        "channel": "Graham Neubig",
+        "video_id": "IwEYCbdgJ9U",
+        "title": "CMU Advanced NLP 2024 (18): Knowledge and Language Models",
+        "url": "https://www.youtube.com/watch?v=IwEYCbdgJ9U",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-19": {
+        "channel": "Graham Neubig",
+        "video_id": "d0QSnLjlgzc",
+        "title": "CMU Advanced NLP 2024 (20): Tool Use and Language Agents",
+        "url": "https://www.youtube.com/watch?v=d0QSnLjlgzc",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-20": {
+        "channel": "Graham Neubig",
+        "video_id": "mPd2hFmzjWE",
+        "title": "CMU Advanced NLP 2024 (21): Complex Reasoning",
+        "url": "https://www.youtube.com/watch?v=mPd2hFmzjWE",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-21": {
+        "channel": "Graham Neubig",
+        "video_id": "7Sse6P5xbEc",
+        "title": "CMU Advanced NLP 2024 (22): Linguistics and Computational Linguistics",
+        "url": "https://www.youtube.com/watch?v=7Sse6P5xbEc",
+        "model": "llama3.1-70b"
+    },
+    "2025-01-22": {
+        "channel": "Graham Neubig",
+        "video_id": "1Y9qermdf8I",
+        "title": "CMU Advanced NLP 2024 (23): Multilingual NLP",
+        "url": "https://www.youtube.com/watch?v=1Y9qermdf8I",
+        "model": "llama3.1-70b"
     }
 }

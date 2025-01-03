@@ -28,6 +28,10 @@ def load_twitter_api():
 
 def post_thread(content_list, client):
     previous_tweet_id = None
+
+    if len(content_list) > 17:
+        logging.warning("Thread contains more than 17 tweets. Twitter thread limit is 17 tweets.")
+        return
     
     for i, content in enumerate(content_list):
         retries = 3  # Reduced retries since wait_on_rate_limit handles most rate limit issues

@@ -4,3 +4,6 @@ __pycache__/
 .venv/
 uv.lock
 queries.sql
+notes.md
+videos/videos copy.csv
+videos/videos.csv

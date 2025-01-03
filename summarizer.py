@@ -11,7 +11,7 @@ from langchain_groq import ChatGroq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 class TranscriptSummarizer:
-    def __init__(self, channel, video_id, title='', model="gpt-4o", provider='openai', prompt="prompt.json", temperature=0.3, chunk_size=4000, verbose=False):
+    def __init__(self, channel, video_id, title='', model="gpt-4o", provider='openai', prompt="prompt.json", temperature=0.3, chunk_size=4000, verbose=False, db_conn=None):
         self.channel = channel
         self.video_id = video_id
         self.title = title
@@ -24,6 +24,7 @@ class TranscriptSummarizer:
         self.transcript = ""
         self.summary = ""
         self.output_file = ""
+        self.db_conn = db_conn
         self.llm = self._initialize_llm()
 
     def _get_available_ollama_models(self):
@@ -85,6 +86,26 @@ class TranscriptSummarizer:
                     logging.error(f"Error initializing ChatGroq: {e}")
             else:
                 logging.info(f"Groq model {self.model} not available")
+        
+        if self.provider == "deepseek":
+            # Check if the model is one of the specified models for DeepSeek
+            deepseek_models = ["deepseek-chat"]
+            if self.model in deepseek_models:
+                if not os.getenv("DEEPSEEK_API_KEY"):
+                    raise ValueError("DEEPSEEK_API_KEY not found in environment variables")
+                try:
+                    logging.info(f"Using DeepSeek model: {self.model}")
+                    return ChatOpenAI(
+                        api_key=os.getenv("DEEPSEEK_API_KEY"),
+                        base_url="https://api.deepseek.com",
+                        temperature=self.temperature,
+                        model_name=self.model,
+                        verbose=self.verbose
+                    )
+                except Exception as e:
+                    logging.error(f"Error initializing DeepSeek: {e}")
+            else:
+                logging.info(f"Model {self.model} not available")
 
         # Use OpenAI as default/fallback
         logging.info("Using ChatOpenAI")
@@ -101,6 +122,21 @@ class TranscriptSummarizer:
             raise
     
     def fetch_transcript(self):
+        if self.db_conn:
+            cur = self.db_conn.cursor()
+            cur.execute("""
+                SELECT t.transcript 
+                FROM transcripts t
+                JOIN videos v ON t.video_id = v.id 
+                WHERE v.video_id = %s
+            """, (self.video_id,))
+            result = cur.fetchone()
+            cur.close()
+            
+            if result:
+                self.transcript = result[0]
+                return
+
         raw_transcript = YouTubeTranscriptApi.get_transcript(self.video_id)
         self.transcript = ' '.join([line['text'] for line in raw_transcript])
         self.transcript = self._clean_transcript_string(self.transcript)

@@ -108,8 +108,8 @@
         "video_id": "wa61zdcKWyU",
         "title": "CMU Advanced NLP 2024 (2): Word Representation and Text Classification",
         "url": "https://www.youtube.com/watch?v=wa61zdcKWyU",
-        "provider": "groq",
-        "model": "llama-3.3-70b-versatile"
+        "provider": "cerebras",
+        "model": "llama3.1-70b"
     },
     "2025-01-05": {
         "channel": "Graham Neubig",

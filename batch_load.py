@@ -32,7 +32,6 @@ def connect_db(use_dict_row=False):
 def update_summaries(csv_file, provider, model):
     """Update only summaries for existing videos"""
     conn = connect_db(use_dict_row=True)
-    # Create cursor with dict_row factory
     cur = conn.cursor(row_factory=dict_row)
     scheduler = Scheduler()
 
@@ -44,7 +43,6 @@ def update_summaries(csv_file, provider, model):
                 try:
                     video_id = scheduler._extract_video_id(url)
                     
-                    # Check if video exists
                     cur.execute("""
                         SELECT id, title, channel 
                         FROM videos 
@@ -56,7 +54,6 @@ def update_summaries(csv_file, provider, model):
                         logging.warning(f"Video {url} not found in database, skipping")
                         continue
 
-                    # Generate summary
                     summarizer = TranscriptSummarizer(
                         channel=video['channel'],
                         video_id=video_id,
@@ -68,13 +65,17 @@ def update_summaries(csv_file, provider, model):
                     summarizer.fetch_transcript()
                     summarizer.summarize()
 
-                    # Update summary
+                    # Update summary and model information
                     cur.execute("""
                         UPDATE videos 
-                        SET summary = %s
+                        SET summary = %s,
+                            provider_name = %s,
+                            model_name = %s
                         WHERE id = %s
                     """, (
                         summarizer.summary,
+                        summarizer.provider,
+                        summarizer.model,
                         video['id']
                     ))
 
@@ -103,16 +104,13 @@ def process_videos(csv_file, provider=None, model=None):
                 try:
                     video_id = scheduler._extract_video_id(url)
                     
-                    # Check if video exists
                     cur.execute("SELECT 1 FROM videos WHERE video_id = %s", (video_id,))
                     if cur.fetchone():
                         logging.info(f"Video {url} already exists, skipping")
                         continue
 
-                    # Get video info
                     video_info = scheduler._get_video_info(video_id)
                     
-                    # Get transcript and generate summary if model is provided
                     summarizer = TranscriptSummarizer(
                         channel=video_info["channel"],
                         video_id=video_id,
@@ -127,11 +125,12 @@ def process_videos(csv_file, provider=None, model=None):
                         summarizer.summarize()
                         summary = summarizer.summary
 
-                    # Insert into videos table
+                    # Insert into videos table with provider and model info
                     cur.execute("""
                         INSERT INTO videos 
-                        (video_id, title, channel, summary, date_added, upvotes, downvotes)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        (video_id, title, channel, summary, date_added, upvotes, downvotes, 
+                         provider_name, model_name)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                         RETURNING id
                     """, (
                         video_id,
@@ -140,7 +139,9 @@ def process_videos(csv_file, provider=None, model=None):
                         summary,
                         datetime.now(),
                         0,
-                        0
+                        0,
+                        provider if provider and model else None,
+                        model if provider and model else None
                     ))
                     video_db_id = cur.fetchone()[0]
 

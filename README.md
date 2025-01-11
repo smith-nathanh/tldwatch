@@ -1,6 +1,6 @@
 # tldwatch
 
-A Python library for generating concise summaries of YouTube video transcripts or any transcript using various AI model providers.
+A Python library for generating concise summaries of YouTube video transcripts (or any transcript) using various AI model providers.
 
 ## Features
 
@@ -96,7 +96,41 @@ export CEREBRAS_API_KEY="your-key-here"
 export YOUTUBE_API_KEY="your-key-here"
 ```
 
-### Provider Configuration
+### Configuration Management
+
+tldwatch uses a persistent configuration system that automatically loads your saved settings.
+
+#### Configuration Location
+- Linux/Mac: `~/.config/tldwatch/config.json`
+- Or uses `XDG_CONFIG_HOME` if set
+
+#### Setting Configuration
+
+You can save your preferred settings permanently:
+```bash
+# Save default provider and model
+tldwatch --save-config --provider groq --model mixtral-8x7b-32768
+
+# Save with additional settings
+tldwatch --save-config --provider openai --model gpt-4o --temperature 0.8 --chunk-size 6000
+```
+
+#### Configuration Precedence
+Settings are applied in this order (highest to lowest priority):
+1. Command line arguments
+2. User's saved config file
+3. Built-in defaults
+
+For example:
+```bash
+# Uses your saved config settings
+tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc
+
+# Overrides saved config just for this run
+tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc --provider openai --model gpt-4o
+```
+
+#### Provider Configuration
 
 Each provider has default models, but you can specify alternatives:
 
@@ -154,7 +188,7 @@ except SummarizerError as e:
 Clone and set up for development:
 
 ```bash
-git clone https://github.com/smith-nathanh/tldwatch.git
+git clone https://github.com/yourusername/tldwatch.git
 cd tldwatch
 pip install -e ".[dev]"
 ```

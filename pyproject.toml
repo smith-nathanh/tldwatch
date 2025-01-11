@@ -12,6 +12,7 @@ dependencies = [
     "asyncio>=3.4.3",
     "rich>=13.9.4",
     "tiktoken>=0.8.0",
+    "youtube-transcript-api>=0.6.3",
 ]
 
 [build-system]

@@ -15,6 +15,21 @@ tldwatch --video-id QAgR4uQ15rc
 # Read YouTube URL from stdin
 echo "https://www.youtube.com/watch?v=QAgR4uQ15rc" | tldwatch --stdin
 
+Configuration Management:
+----------------------
+# Save your preferred settings permanently
+tldwatch --save-config --provider groq --model mixtral-8x7b-32768
+# Now all future commands will use Groq by default
+
+# Save multiple settings
+tldwatch --save-config --provider openai --model gpt-4o --temperature 0.8 --chunk-size 6000
+
+# Use saved settings
+tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc  # Uses your saved config
+
+# Override saved settings for a single run
+tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc --provider openai --model gpt-4o
+
 Output Options:
 --------------
 # Save summary to a text file

@@ -83,6 +83,17 @@ for video_id in "${video_ids[@]}"; do
     tldwatch --video-id "$video_id" --out "$output_dir/$video_id.txt"
 done
 
+Direct Transcript Input:
+--------------------
+# Pipe a transcript directly to tldwatch
+cat transcript.txt | tldwatch --stdin
+
+# Process transcript with specific provider
+cat transcript.txt | tldwatch --stdin --provider groq
+
+# Save processed transcript summary
+cat transcript.txt | tldwatch --stdin --out summary.txt
+
 Pipeline Usage:
 -------------
 # Process a list of URLs from a file

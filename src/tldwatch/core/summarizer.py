@@ -17,7 +17,7 @@ class SummarizerError(Exception):
 
 
 class Summarizer:
-    """Main class for generating summaries from YouTube video transcripts"""
+    """Main class for generating summaries from YouTube video transcripts or direct text input"""
 
     # Provider mapping
     PROVIDERS = {
@@ -85,33 +85,56 @@ class Summarizer:
         return os.environ.get(env_vars.get(provider))
 
     async def get_summary(
-        self, video_id: Optional[str] = None, url: Optional[str] = None
+        self,
+        video_id: Optional[str] = None,
+        url: Optional[str] = None,
+        transcript_text: Optional[str] = None,
     ) -> str:
         """
-        Generate a summary for the specified YouTube video.
+        Generate a summary from either a YouTube video or direct transcript input.
 
         Args:
             video_id: YouTube video ID
             url: YouTube video URL (alternative to video_id)
+            transcript_text: Direct transcript input (alternative to video_id/url)
 
         Returns:
             Generated summary text
+
+        Raises:
+            ValueError: If no valid input source is provided
+            SummarizerError: If there's an error processing the input
         """
-        # Get video ID from URL if provided
+        # Handle direct transcript input
+        if transcript_text is not None:
+            self.transcript = self._clean_transcript(transcript_text)
+            self.video_id = None
+            return await self._generate_summary()
+
+        # Handle YouTube video input
         if url:
             video_id = extract_video_id(url)
+            if not video_id:
+                raise ValueError("Invalid YouTube URL")
 
         if not video_id:
-            raise ValueError("Must provide either video_id or valid YouTube URL")
+            raise ValueError(
+                "Must provide either video_id, valid YouTube URL, or transcript_text"
+            )
 
         self.video_id = video_id
-
-        # Fetch transcript and metadata
         await self._fetch_transcript()
+
         if self.youtube_api_key:
             await self._fetch_metadata()
 
-        # Generate summary
+        return await self._generate_summary()
+
+    async def _generate_summary(self) -> str:
+        """Generate summary from the current transcript"""
+        if not self.transcript:
+            raise SummarizerError("No transcript available to summarize")
+
         if self.use_full_context and self.provider.can_use_full_context(
             self.transcript
         ):
@@ -123,6 +146,9 @@ class Summarizer:
 
     async def _fetch_transcript(self) -> None:
         """Fetch and process the video transcript"""
+        if not self.video_id:
+            raise SummarizerError("No video ID available to fetch transcript")
+
         try:
             transcript_list = YouTubeTranscriptApi.get_transcript(self.video_id)
             self.transcript = " ".join(item["text"] for item in transcript_list)
@@ -192,7 +218,7 @@ class Summarizer:
     def _create_summary_prompt(self, text: str) -> str:
         """Create prompt for full text summarization"""
         return (
-            "Please provide a clear and concise summary of the following video transcript. "
+            "Please provide a clear and concise summary of the following transcript. "
             "Focus on the main points and key insights:\n\n"
             f"{text}\n\n"
             "Summary:"
@@ -201,7 +227,7 @@ class Summarizer:
     def _create_chunk_prompt(self, chunk: str) -> str:
         """Create prompt for chunk summarization"""
         return (
-            "Please summarize this section of the video transcript, "
+            "Please summarize this section of the transcript, "
             "capturing the key points:\n\n"
             f"{chunk}\n\n"
             "Section Summary:"
@@ -210,7 +236,7 @@ class Summarizer:
     def _create_combine_prompt(self, summaries: str) -> str:
         """Create prompt for combining chunk summaries"""
         return (
-            "Below are summaries of different sections of a video. "
+            "Below are summaries of different sections. "
             "Please combine them into a single, coherent summary that captures "
             "the main points and flows naturally:\n\n"
             f"{summaries}\n\n"
@@ -223,7 +249,7 @@ class Summarizer:
             raise SummarizerError("No summary available to export")
 
         data = {
-            "video_id": self.video_id,
+            "video_id": self.video_id,  # Will be None for direct transcript input
             "summary": self.summary,
             "metadata": self.metadata,
             "provider": self.provider_name,

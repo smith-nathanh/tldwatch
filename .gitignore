@@ -1,9 +1,10 @@
-texts/
+# Python-generated files
 __pycache__/
-.env
-.venv/
-uv.lock
-queries.sql
-notes.md
-videos/videos copy.csv
-videos/videos.csv
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv

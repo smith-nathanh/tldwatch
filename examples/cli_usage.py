@@ -35,10 +35,10 @@ tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc \
     --provider groq \
     --model mixtral-8x7b-32768
 
-# Use OpenAI with GPT-4
+# Use OpenAI with gpt-4o
 tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc \
     --provider openai \
-    --model gpt-4
+    --model gpt-4o
 
 # Use local Ollama model
 tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc \
@@ -61,7 +61,7 @@ Configuration Management:
 tldwatch --provider groq --model mixtral-8x7b-32768 --save-config
 
 # Save configuration without processing a video
-tldwatch --save-config --provider openai --model gpt-4
+tldwatch --save-config --provider openai --model gpt-4o
 
 Batch Processing:
 ---------------

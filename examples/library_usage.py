@@ -46,8 +46,8 @@ async def provider_examples():
     summary = await groq_summarizer.get_summary(video_id="QAgR4uQ15rc")
     print("Groq Summary:", summary)
 
-    # Using OpenAI with GPT-4
-    openai_summarizer = Summarizer(provider="openai", model="gpt-4", temperature=0.5)
+    # Using OpenAI with gpt-4o
+    openai_summarizer = Summarizer(provider="openai", model="gpt-4o", temperature=0.5)
     summary = await openai_summarizer.get_summary(video_id="QAgR4uQ15rc")
     print("OpenAI Summary:", summary)
 

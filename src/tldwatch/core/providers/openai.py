@@ -14,14 +14,14 @@ class OpenAIProvider(BaseProvider):
     # Model context windows
     CONTEXT_WINDOWS = {
         "gpt-3.5-turbo": 16385,
-        "gpt-4": 8192,
-        "gpt-4-32k": 32768,
-        "gpt-4-turbo-preview": 128000,
+        "gpt-4o": 8192,
+        "gpt-4o-32k": 32768,
+        "gpt-4o-turbo-preview": 128000,
     }
 
     def __init__(
         self,
-        model: str = "gpt-4",
+        model: str = "gpt-4o",
         api_key: Optional[str] = None,
         temperature: float = 0.7,
         rate_limit_config: Optional[RateLimitConfig] = None,
@@ -36,7 +36,7 @@ class OpenAIProvider(BaseProvider):
         # These values should be adjusted based on the API tier
         return RateLimitConfig(
             requests_per_minute=3500,  # Standard tier limit
-            tokens_per_minute=180000,  # Approximate for GPT-4
+            tokens_per_minute=180000,  # Approximate for gpt-4o
             max_retries=3,
             retry_delay=1.0,
         )

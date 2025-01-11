@@ -90,7 +90,7 @@ def main():
     # Provider selection
     if Confirm.ask("\nTry different providers?"):
         providers = {
-            "openai": "gpt-4",
+            "openai": "gpt-4o",
             "groq": "mixtral-8x7b-32768",
             "ollama": "mistral",
         }
@@ -116,7 +116,7 @@ def main():
     # Configuration
     if Confirm.ask("\nDemonstrate configuration?"):
         run_command(
-            "tldwatch --save-config --provider openai --model gpt-4",
+            "tldwatch --save-config --provider openai --model gpt-4o",
             "Saving default configuration",
         )
 

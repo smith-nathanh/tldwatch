@@ -12,7 +12,7 @@ async def main():
     # Initialize summarizer (uses OpenAI by default)
     summarizer = Summarizer(
         provider="openai",  # or "groq", "cerebras", "ollama"
-        model="gpt-4",  # optional, uses provider default if not specified
+        model="gpt-4o",  # optional, uses provider default if not specified
     )
 
     # 1. Summarize from YouTube video ID

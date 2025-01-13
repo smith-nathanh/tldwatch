@@ -13,6 +13,7 @@ class RateLimitConfig:
     tokens_per_minute: Optional[int] = None
     max_retries: int = 3
     retry_delay: float = 1.0  # Base delay in seconds
+    timeout: float = 60.0  # Base timeout in seconds for requests
 
 
 class ProviderError(Exception):
@@ -26,11 +27,12 @@ class RateLimitError(ProviderError):
 
     def __init__(self, retry_after: Optional[float] = None):
         self.retry_after = retry_after
-        super().__init__(
+        message = (
             f"Rate limit exceeded. Retry after {retry_after} seconds"
             if retry_after
             else "Rate limit exceeded"
         )
+        super().__init__(message)
 
 
 class AuthenticationError(ProviderError):
@@ -109,6 +111,12 @@ class BaseProvider(ABC):
             time.sleep(retry_after)
         else:
             time.sleep(self.rate_limit_config.retry_delay)
+
+    @property
+    @abstractmethod
+    def max_concurrent_requests(self) -> int:
+        """Return the recommended max concurrent requests for this provider"""
+        pass
 
     @property
     @abstractmethod

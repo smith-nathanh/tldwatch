@@ -5,6 +5,7 @@ This script demonstrates various CLI features with real examples.
 """
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -14,15 +15,37 @@ from rich.prompt import Confirm, Prompt
 console = Console()
 
 
+def get_tldwatch_command() -> str:
+    """
+    Get the appropriate command to run tldwatch.
+    Returns installed 'tldwatch' if available, otherwise uses development path.
+    """
+    # Check if tldwatch is installed
+    if shutil.which("tldwatch"):
+        return "tldwatch"
+
+    # Fall back to development version
+    return "python -m tldwatch.cli.main"
+
+
 def run_command(command: str, description: str = None) -> None:
     """Run a command and display its output"""
     if description:
         console.print(f"\n[bold blue]{description}[/bold blue]")
 
+    # Replace 'tldwatch' with appropriate command
+    tldwatch_cmd = get_tldwatch_command()
+    command = command.replace("tldwatch", tldwatch_cmd)
+
     console.print(f"[dim]$ {command}[/dim]")
     try:
         result = subprocess.run(
-            command, shell=True, check=True, text=True, capture_output=True
+            command,
+            shell=True,
+            check=True,
+            text=True,
+            capture_output=True,
+            env=os.environ,
         )
         if result.stdout:
             console.print(result.stdout)
@@ -51,6 +74,9 @@ def check_environment() -> bool:
             f"[yellow]Warning: API keys missing for: {', '.join(missing)}[/yellow]"
         )
         console.print("Some examples may not work without the required API keys.")
+        console.print("Make sure to set the environment variables by:")
+        console.print("1. Sourcing your .env file: source .env")
+        console.print("2. Or exporting directly: export OPENAI_API_KEY=your-key-here")
         return False
     return True
 
@@ -116,7 +142,7 @@ def main():
     # Configuration
     if Confirm.ask("\nDemonstrate configuration?"):
         run_command(
-            "tldwatch --save-config --provider openai --model gpt-4o",
+            "tldwatch --save-config --provider openai --model gpt-4",
             "Saving default configuration",
         )
 

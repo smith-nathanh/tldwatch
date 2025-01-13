@@ -4,40 +4,56 @@ Shows the most common ways to use the library.
 """
 
 import asyncio
+import logging
 
 from tldwatch import Summarizer
 
+# Set up detailed logging
+logging.basicConfig(
+    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
 
 async def main():
-    # Initialize summarizer (uses OpenAI by default)
-    summarizer = Summarizer(
-        provider="openai",  # or "groq", "cerebras", "ollama"
-        model="gpt-4o",  # optional, uses provider default if not specified
-    )
+    try:
+        # Initialize summarizer
+        logger.info("Initializing summarizer")
+        summarizer = Summarizer(
+            provider="cerebras",
+            model="llama3.1-70b",
+            temperature=0.7,
+            chunk_size=5000,
+            chunk_overlap=200,
+        )
+        logger.info("Summarizer initialized successfully")
 
-    # 1. Summarize from YouTube video ID
-    summary = await summarizer.get_summary(video_id="QAgR4uQ15rc")
-    print("\nSummary from video ID:", summary)
+        # Summarize from YouTube video ID
+        video_id = "QAgR4uQ15rc"
+        logger.info(f"Starting summary process for video ID: {video_id}")
 
-    # 2. Summarize from YouTube URL
-    summary = await summarizer.get_summary(
-        url="https://www.youtube.com/watch?v=QAgR4uQ15rc"
-    )
-    print("\nSummary from URL:", summary)
+        try:
+            summary = await summarizer.get_summary(video_id=video_id)
+            logger.info("Summary generation completed")
+            logger.info("\nSummary from video ID: %s", summary)
 
-    # 3. Summarize direct transcript input
-    transcript = """
-    This is a sample transcript.
-    It can be any text you want to summarize.
-    The summarizer will process it using the configured provider.
-    """
+            # Export summary to file
+            summarizer.export_summary("summary.json")
+            logger.info("Summary exported to summary.json")
 
-    summary = await summarizer.get_summary(transcript_text=transcript)
-    print("\nSummary from transcript:", summary)
+        except Exception as e:
+            logger.error("Error processing video: %s", str(e))
+            raise
 
-    # 4. Export summary to file
-    summarizer.export_summary("summary.json")
+    except Exception as e:
+        logger.error("Fatal error: %s", str(e))
+        raise
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Process interrupted by user")
+    except Exception as e:
+        logger.error("Process failed: %s", str(e))

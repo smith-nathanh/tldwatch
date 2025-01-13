@@ -57,7 +57,11 @@ class OllamaProvider(BaseProvider):
             )
 
         super().__init__(
-            model, api_key, temperature, rate_limit_config, use_full_context
+            model=model,
+            api_key=api_key,
+            temperature=temperature,
+            rate_limit_config=rate_limit_config,
+            use_full_context=use_full_context,
         )
 
     def _default_rate_limit_config(self) -> RateLimitConfig:

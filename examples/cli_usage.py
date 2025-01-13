@@ -15,6 +15,33 @@ tldwatch --video-id QAgR4uQ15rc
 # Read YouTube URL from stdin
 echo "https://www.youtube.com/watch?v=QAgR4uQ15rc" | tldwatch --stdin
 
+Environment Setup:
+----------------
+# Option 1: Export in your terminal session
+export OPENAI_API_KEY="your-key-here"
+export GROQ_API_KEY="your-key-here"
+export CEREBRAS_API_KEY="your-key-here"
+export YOUTUBE_API_KEY="your-key-here"  # Optional, for video metadata
+
+# Option 2: Use with a .env file
+echo 'OPENAI_API_KEY=your-key-here
+GROQ_API_KEY=your-key-here
+CEREBRAS_API_KEY=your-key-here
+YOUTUBE_API_KEY=your-key-here' > .env
+
+# Then source it
+source .env
+
+# Option 3: Set temporarily for a single command
+OPENAI_API_KEY="your-key-here" tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc
+
+# Option 4: Add to your shell config (~/.bashrc, ~/.zshrc, etc.)
+# Add these lines to make them permanent:
+export OPENAI_API_KEY="your-key-here"
+export GROQ_API_KEY="your-key-here"
+export CEREBRAS_API_KEY="your-key-here"
+export YOUTUBE_API_KEY="your-key-here"
+
 Configuration Management:
 ----------------------
 # Save your preferred settings permanently
@@ -28,7 +55,7 @@ tldwatch --save-config --provider openai --model gpt-4o --temperature 0.8 --chun
 tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc  # Uses your saved config
 
 # Override saved settings for a single run
-tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc --provider openai --model gpt-4o
+tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc --provider openai --model gpt-4
 
 Output Options:
 --------------
@@ -50,10 +77,10 @@ tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc \
     --provider groq \
     --model mixtral-8x7b-32768
 
-# Use OpenAI with gpt-4o
+# Use OpenAI with GPT-4
 tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc \
     --provider openai \
-    --model gpt-4o
+    --model gpt-4
 
 # Use local Ollama model
 tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc \
@@ -76,7 +103,7 @@ Configuration Management:
 tldwatch --provider groq --model mixtral-8x7b-32768 --save-config
 
 # Save configuration without processing a video
-tldwatch --save-config --provider openai --model gpt-4o
+tldwatch --save-config --provider openai --model gpt-4
 
 Batch Processing:
 ---------------

@@ -1,2 +1,3 @@
-def hello() -> str:
-    return "Hello from tldwatch!"
+from .core.summarizer import Summarizer
+
+__all__ = ["Summarizer"]

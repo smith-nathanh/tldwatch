@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, Dict, Optional
 
 import aiohttp
@@ -17,34 +18,35 @@ class OpenAIProvider(BaseProvider):
 
     API_BASE = "https://api.openai.com/v1"
 
-    # Model context windows
     CONTEXT_WINDOWS = {
-        "gpt-3.5-turbo": 16385,
-        "gpt-4o": 8192,
-        "gpt-4o-32k": 32768,
-        "gpt-4o-turbo-preview": 128000,
+        "gpt-4o": 128000,
+        "gpt-4o-mini": 128000,
     }
 
     def __init__(
         self,
-        model: str = "gpt-4o",
-        api_key: Optional[str] = None,
+        model: str = "gpt-4o-mini",
         temperature: float = 0.7,
         rate_limit_config: Optional[RateLimitConfig] = None,
         use_full_context: bool = False,
     ):
         super().__init__(
             model=model,
-            api_key=api_key,
             temperature=temperature,
             rate_limit_config=rate_limit_config,
             use_full_context=use_full_context,
         )
-        if not api_key:
+
+        # Verify API key exists after BaseProvider initialization
+        if not self.api_key:
             raise AuthenticationError("OpenAI API key is required")
+
         self._encoding = tiktoken.encoding_for_model(model)
         self._retry_count = 0
-        self._session = None
+        self._session = aiohttp.ClientSession()  # Reuse the same session
+
+    def _get_provider_name(self) -> str:
+        return "openai"
 
     def _default_rate_limit_config(self) -> RateLimitConfig:
         """Default rate limits for OpenAI"""
@@ -66,7 +68,7 @@ class OpenAIProvider(BaseProvider):
     @property
     def max_concurrent_requests(self) -> int:
         """Maximum recommended concurrent requests"""
-        return 15
+        return 20  # Increase concurrency if API allows
 
     @property
     def context_window(self) -> int:
@@ -85,61 +87,80 @@ class OpenAIProvider(BaseProvider):
             raise ProviderError(f"Error generating summary: {str(e)}")
 
     async def _make_request(self, prompt: str, **kwargs: Dict[str, Any]) -> str:
-        """Make an async request to OpenAI's API with error handling"""
-        if self._retry_count >= self.rate_limit_config.max_retries:
-            raise ProviderError("Maximum retry attempts exceeded")
+        """Make an async request to OpenAI's API with error handling and retries"""
+        last_exception = None
 
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
+        while self._retry_count < self.rate_limit_config.max_retries:
+            try:
+                # Create a new session if we don't have one
+                if self._session is None:
+                    self._session = aiohttp.ClientSession()
 
-        data = {
-            "model": self.model,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are a helpful assistant that generates concise summaries.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": self.temperature,
-            **kwargs,
-        }
+                headers = {
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                }
 
-        try:
-            # Create a new session if we don't have one
-            if self._session is None:
-                self._session = aiohttp.ClientSession()
+                data = {
+                    "model": self.model,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a helpful assistant that generates concise summaries.",
+                        },
+                        {"role": "user", "content": prompt},
+                    ],
+                    "temperature": self.temperature,
+                    **kwargs,
+                }
 
-            async with self._session.post(
-                f"{self.API_BASE}/chat/completions",
-                headers=headers,
-                json=data,
-                timeout=aiohttp.ClientTimeout(total=30),
-            ) as response:
-                if response.status == 401:
-                    raise AuthenticationError("Invalid API key")
-                elif response.status == 429:
-                    retry_after = float(
-                        response.headers.get(
-                            "Retry-After", self.rate_limit_config.retry_delay
+                async with self._session.post(
+                    f"{self.API_BASE}/chat/completions",
+                    headers=headers,
+                    json=data,
+                    timeout=aiohttp.ClientTimeout(total=30),
+                ) as response:
+                    if response.status == 401:
+                        raise AuthenticationError("Invalid API key")
+                    elif response.status == 429:
+                        retry_after = float(
+                            response.headers.get(
+                                "Retry-After", self.rate_limit_config.retry_delay
+                            )
                         )
-                    )
-                    raise RateLimitError(retry_after=retry_after)
-                elif response.status != 200:
-                    error_text = await response.text()
+                        # Instead of raising immediately, we'll handle the retry
+                        self._retry_count += 1
+                        if self._retry_count >= self.rate_limit_config.max_retries:
+                            raise RateLimitError(retry_after=retry_after)
+                        await asyncio.sleep(retry_after)
+                        continue
+
+                    elif response.status != 200:
+                        error_text = await response.text()
+                        raise ProviderError(
+                            f"API error (status {response.status}): {error_text}"
+                        )
+
+                    response_data = await response.json()
+                    return response_data["choices"][0]["message"]["content"]
+
+            except RateLimitError as e:
+                last_exception = e
+                raise  # If we've exceeded max retries, propagate the error
+            except aiohttp.ClientError as e:
+                last_exception = e
+                self._retry_count += 1
+                if self._retry_count >= self.rate_limit_config.max_retries:
                     raise ProviderError(
-                        f"API error (status {response.status}): {error_text}"
+                        f"Network error after {self._retry_count} retries: {str(e)}"
                     )
+                await asyncio.sleep(
+                    self.rate_limit_config.retry_delay * self._retry_count
+                )
+            except (KeyError, IndexError, ValueError) as e:
+                raise ProviderError(f"Invalid API response: {str(e)}")
 
-                response_data = await response.json()
-                return response_data["choices"][0]["message"]["content"]
-
-        except aiohttp.ClientError as e:
-            raise ProviderError(f"Network error: {str(e)}")
-        except (KeyError, IndexError, ValueError) as e:
-            raise ProviderError(f"Invalid API response: {str(e)}")
+        raise last_exception or ProviderError("Maximum retry attempts exceeded")
 
     async def close(self):
         """Close the aiohttp session"""

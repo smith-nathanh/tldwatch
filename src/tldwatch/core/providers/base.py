@@ -1,3 +1,4 @@
+import os
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -44,23 +45,43 @@ class AuthenticationError(ProviderError):
 class BaseProvider(ABC):
     """Base class for all LLM providers"""
 
+    # Class-level mapping of providers to env vars
+    _ENV_VARS = {
+        "openai": "OPENAI_API_KEY",
+        "groq": "GROQ_API_KEY",
+        "cerebras": "CEREBRAS_API_KEY",
+        "ollama": None,  # Local provider doesn't need API key
+    }
+
     def __init__(
         self,
         model: str,
-        api_key: Optional[str] = None,
         temperature: float = 0.7,
         rate_limit_config: Optional[RateLimitConfig] = None,
         use_full_context: bool = False,
     ):
         self.model = model
-        self.api_key = api_key
         self.temperature = temperature
         self.rate_limit_config = rate_limit_config or self._default_rate_limit_config()
         self.use_full_context = use_full_context
 
+        # API key assignment
+        self.api_key = self._get_api_key()
+
         # Rate limiting state
         self._request_timestamps: list[float] = []
         self._last_request_time: Optional[datetime] = None
+
+    def _get_api_key(self) -> Optional[str]:
+        """Get API key from environment variables"""
+        provider = self._get_provider_name().lower()
+        env_var = self._ENV_VARS.get(provider)
+        return os.environ.get(env_var) if env_var else None
+
+    @classmethod
+    def register_provider(cls, provider_name: str, env_var: Optional[str]) -> None:
+        """Register a new provider and its environment variable"""
+        cls._ENV_VARS[provider_name.lower()] = env_var
 
     @abstractmethod
     def _default_rate_limit_config(self) -> RateLimitConfig:

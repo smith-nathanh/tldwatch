@@ -42,15 +42,10 @@ class GroqProvider(BaseProvider):
     def __init__(
         self,
         model: str = "mixtral-8x7b-32768",
-        api_key: Optional[str] = None,
         temperature: float = 0.7,
         rate_limit_config: Optional[RateLimitConfig] = None,
         use_full_context: bool = False,
     ):
-        # Initialize session-related attributes
-        self._session: Optional[aiohttp.ClientSession] = None
-        self._session_lock = asyncio.Lock()
-
         if model not in self.CONTEXT_WINDOWS:
             raise ValueError(
                 f"Invalid model. Choose from: {', '.join(self.CONTEXT_WINDOWS.keys())}"
@@ -58,14 +53,22 @@ class GroqProvider(BaseProvider):
 
         super().__init__(
             model=model,
-            api_key=api_key,
             temperature=temperature,
             rate_limit_config=rate_limit_config,
             use_full_context=use_full_context,
         )
 
-        if not api_key:
+        # Verify API key exists after BaseProvider initialization
+        if not self.api_key:
             raise AuthenticationError("Groq API key is required")
+
+        # Initialize session-related attributes
+        self._session: Optional[aiohttp.ClientSession] = None
+        self._session_lock = asyncio.Lock()
+        self._retry_count = 0
+
+    def _get_provider_name(self) -> str:
+        return "groq"
 
     def _default_rate_limit_config(self) -> RateLimitConfig:
         """Default rate limits for Groq based on their documentation"""
@@ -107,10 +110,11 @@ class GroqProvider(BaseProvider):
 
     async def generate_summary(self, text: str) -> str:
         """Generate a summary with optimized async handling"""
-        self._check_rate_limit()  # Use base class rate limiting
         try:
+            self._check_rate_limit()
+            self._retry_count = 0  # Reset retry counter before new request
             response = await self._make_request(text)
-            self._record_request()  # Record the request in base class
+            self._record_request()
             return response
         except Exception as e:
             raise ProviderError(f"Error generating summary: {str(e)}")
@@ -127,16 +131,18 @@ class GroqProvider(BaseProvider):
                             force_close=False,
                         ),
                         timeout=self.REQUEST_TIMEOUT,
-                        headers={"Authorization": f"Bearer {self.api_key}"},
                     )
         return self._session
 
     async def _make_request(self, prompt: str, **kwargs: Dict[str, Any]) -> str:
-        """Make an optimized async request to Groq's API with rate limit logging"""
-        logger.debug(
-            f"Rate limit state: {len(self._request_timestamps)} requests in last minute, limit is {self.rate_limit_config.requests_per_minute}"
-        )
+        """Make an optimized async request to Groq's API with error handling and retries"""
+        last_exception = None
         session = await self._get_session()
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
 
         data = {
             "model": self.model,
@@ -151,66 +157,68 @@ class GroqProvider(BaseProvider):
             **kwargs,
         }
 
-        tries = 0
-        while tries < self.rate_limit_config.max_retries:
+        while self._retry_count < self.rate_limit_config.max_retries:
             try:
                 async with session.post(
                     f"{self.API_BASE}/chat/completions",
+                    headers=headers,
                     json=data,
                 ) as response:
-                    response_json = await response.json()
-                    headers = dict(response.headers)
-
-                    # Log API response details
-                    # logger.debug(
-                    #    f"Groq API Response - Status: {response.status}, Headers: {headers}"
-                    # )
-
-                    if response.status == 429:
+                    if response.status == 401:
+                        raise AuthenticationError("Invalid API key")
+                    elif response.status == 429:
                         retry_after = float(
-                            headers.get(
+                            response.headers.get(
                                 "Retry-After", self.rate_limit_config.retry_delay
                             )
                         )
                         logger.warning(
-                            f"Groq API rate limit hit. Need to wait {retry_after} seconds. Headers: {headers}"
+                            f"Groq API rate limit hit. Need to wait {retry_after} seconds."
                         )
-                        raise RateLimitError(retry_after=retry_after)
+                        # Instead of raising immediately, we'll handle the retry
+                        self._retry_count += 1
+                        if self._retry_count >= self.rate_limit_config.max_retries:
+                            raise RateLimitError(retry_after=retry_after)
+                        await asyncio.sleep(retry_after)
+                        continue
 
-                    if response.status != 200:
-                        error_msg = response_json.get("error", {}).get(
-                            "message", "Unknown error"
+                    elif response.status != 200:
+                        error_text = await response.text()
+                        logger.error(f"Groq API error: {error_text}")
+                        raise ProviderError(
+                            f"API error (status {response.status}): {error_text}"
                         )
-                        logger.error(
-                            f"Groq API error: {error_msg}. Status: {response.status}, Headers: {headers}"
-                        )
-                        response.raise_for_status()
 
-                    # Log successful response details
-                    logger.debug("Groq API request successful")
+                    response_data = await response.json()
+                    return response_data["choices"][0]["message"]["content"]
 
-                    return response_json["choices"][0]["message"]["content"]
             except RateLimitError as e:
-                tries += 1
-                if tries >= self.rate_limit_config.max_retries:
-                    raise
-                await asyncio.sleep(e.retry_after or self.rate_limit_config.retry_delay)
+                last_exception = e
+                raise  # If we've exceeded max retries, propagate the error
             except aiohttp.ClientError as e:
-                tries += 1
-                if tries >= self.rate_limit_config.max_retries:
+                last_exception = e
+                self._retry_count += 1
+                if self._retry_count >= self.rate_limit_config.max_retries:
                     raise ProviderError(
-                        f"Network error after {tries} retries: {str(e)}"
+                        f"Network error after {self._retry_count} retries: {str(e)}"
                     )
-                await asyncio.sleep(self.rate_limit_config.retry_delay * tries)
+                await asyncio.sleep(
+                    self.rate_limit_config.retry_delay * self._retry_count
+                )
+            except (KeyError, IndexError, ValueError) as e:
+                raise ProviderError(f"Invalid API response: {str(e)}")
+
+        raise last_exception or ProviderError("Maximum retry attempts exceeded")
 
     async def close(self) -> None:
-        """Cleanup resources"""
-        if hasattr(self, "_session") and self._session and not self._session.closed:
+        """Close the aiohttp session"""
+        if self._session is not None and not self._session.closed:
             await self._session.close()
+            self._session = None
 
     def __del__(self):
         """Ensure the session is closed when the provider is deleted"""
-        if hasattr(self, "_session") and self._session and not self._session.closed:
+        if self._session is not None and not self._session.closed:
             import asyncio
 
             try:

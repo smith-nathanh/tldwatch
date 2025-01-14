@@ -20,8 +20,9 @@ async def main():
         # Initialize summarizer
         logger.info("Initializing summarizer")
         summarizer = Summarizer(
-            provider="cerebras",
-            model="llama3.1-70b",
+            provider="ollama",
+            model="llama3.1:8b",
+            use_full_context=False,
             temperature=0.7,
             chunk_size=5000,
             chunk_overlap=200,
@@ -38,7 +39,7 @@ async def main():
             logger.info("\nSummary from video ID: %s", summary)
 
             # Export summary to file
-            summarizer.export_summary("summary.json")
+            await summarizer.export_summary("summary.json")
             logger.info("Summary exported to summary.json")
 
         except Exception as e:

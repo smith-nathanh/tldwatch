@@ -3,6 +3,7 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
+import aiohttp
 from youtube_transcript_api import YouTubeTranscriptApi
 
 from ..utils.url_parser import extract_video_id
@@ -36,7 +37,7 @@ class Summarizer:
         provider: str = "openai",
         model: Optional[str] = None,
         temperature: float = 0.7,
-        chunk_size: int = 3000,
+        chunk_size: int = 4000,
         chunk_overlap: int = 200,
         use_full_context: bool = False,
         youtube_api_key: Optional[str] = None,
@@ -55,10 +56,7 @@ class Summarizer:
             raise ValueError(f"Unsupported provider: {provider}")
 
         self.provider = provider_class(
-            model=model,
-            temperature=temperature,
-            use_full_context=use_full_context,
-            api_key=self._get_provider_api_key(self.provider_name),
+            model=model, temperature=temperature, use_full_context=use_full_context
         )
 
         # State variables
@@ -66,17 +64,6 @@ class Summarizer:
         self.transcript: Optional[str] = None
         self.summary: Optional[str] = None
         self.metadata: Dict[str, Any] = {}
-
-    def _get_provider_api_key(self, provider: str) -> Optional[str]:
-        """Get API key from environment variables"""
-        env_vars = {
-            "openai": "OPENAI_API_KEY",
-            "groq": "GROQ_API_KEY",
-            "cerebras": "CEREBRAS_API_KEY",
-            "ollama": None,  # Local provider doesn't need API key
-        }
-        env_var = env_vars.get(provider)
-        return os.environ.get(env_var) if env_var else None
 
     async def get_summary(
         self,
@@ -117,7 +104,7 @@ class Summarizer:
 
     async def _generate_summary(self) -> str:
         """Generate summary using either full context or chunked approach"""
-        if not self.transcript:
+        if not self.transcript.strip():
             raise SummarizerError("No transcript available to summarize")
 
         if (
@@ -184,7 +171,7 @@ class Summarizer:
                     )
                     return (index, f"[Error processing chunk {index + 1}]")
 
-        # Create and track tasks with improved management
+        # Create and track tasks
         tasks = []
         async with self._lock:
             for i, chunk in enumerate(chunks):
@@ -322,33 +309,68 @@ class Summarizer:
 
     async def _fetch_metadata(self) -> None:
         """Fetch video metadata if YouTube API key is available"""
+        self.youtube_api_key = os.getenv("YOUTUBE_API_KEY")
         if not self.youtube_api_key or not self.video_id:
+            logger.info(
+                "YouTube API key or video ID not available, skipping metadata fetch"
+            )
             return
-        # TODO: Implement YouTube API metadata fetching
-        pass
 
-    async def _process_chunk_with_backoff(
-        self, chunk: str, index: int, max_retries: int = 3
-    ) -> str:
-        """Process a chunk with exponential backoff retry"""
+        url = f"https://www.googleapis.com/youtube/v3/videos?part=snippet&id={self.video_id}&key={self.youtube_api_key}"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    if response.status != 200:
+                        logger.error(f"Failed to fetch metadata: {response.status}")
+                        return
+                    data = await response.json()
+                    if "items" not in data or not data["items"]:
+                        logger.error("No metadata found for the given video ID")
+                        return
+
+                    snippet = data["items"][0]["snippet"]
+                    self.metadata = {
+                        "title": snippet.get("title"),
+                        "channel": snippet.get("channelTitle"),
+                        "url": f"https://www.youtube.com/watch?v={self.video_id}",
+                    }
+                    logger.debug(
+                        f"Fetched metadata for video ID {self.video_id}: {self.metadata}"
+                    )
+        except Exception as e:
+            logger.error(
+                f"Error fetching metadata for video ID {self.video_id}: {str(e)}"
+            )
+
+    async def _retry_with_backoff(self, coro, max_retries: int, *args, **kwargs):
         base_delay = 1.0
         for attempt in range(max_retries):
             try:
-                logger.info(f"Processing chunk {index + 1}, attempt {attempt + 1}")
-                prompt = self._create_chunk_prompt(chunk)
-                summary = await self.provider.generate_summary(prompt)
-                logger.debug(f"Completed chunk {index + 1}")
-                return summary
+                return await coro(*args, **kwargs)
             except Exception as e:
                 if attempt < max_retries - 1:
                     delay = base_delay * (2**attempt)
-                    jitter = (hash(str(index) + str(attempt)) % 1000) / 1000.0
+                    jitter = (hash(str(args) + str(attempt)) % 1000) / 1000.0
                     await asyncio.sleep(delay + jitter)
-                    logger.warning(
-                        f"Retry {attempt + 1} for chunk {index + 1}: {str(e)}"
-                    )
+                    logger.warning(f"Retry {attempt + 1} for {coro.__name__}: {str(e)}")
                 else:
                     raise
+
+    async def _process_chunk_with_backoff(self, chunk: str, index: int) -> str:
+        return await self._retry_with_backoff(
+            self._process_chunk,
+            self.provider.rate_limit_config.max_retries,
+            chunk,
+            index,
+        )
+
+    async def _process_chunk(self, chunk: str, index: int) -> str:
+        logger.info(f"Processing chunk {index + 1}")
+        prompt = self._create_chunk_prompt(chunk)
+        summary = await self.provider.generate_summary(prompt)
+        logger.debug(f"Completed chunk {index + 1}")
+        return summary
 
     def _clean_transcript(self, text: str) -> str:
         """Clean and normalize transcript text"""
@@ -395,10 +417,14 @@ class Summarizer:
         if hasattr(self.provider, "close"):
             await self.provider.close()
 
-    def export_summary(self, file_path: str) -> None:
+    async def export_summary(self, file_path: str) -> None:
         """Export the summary and metadata to a file"""
         if not self.summary:
             raise SummarizerError("No summary available to export")
+
+        # Validate metadata
+        if not self.metadata and self.video_id:
+            await self._fetch_youtube_metadata()
 
         data = {
             "video_id": self.video_id,  # Will be None for direct transcript input
@@ -409,8 +435,10 @@ class Summarizer:
             "model": self.provider.model,
             "settings": {
                 "use_full_context": self.use_full_context,
-                "chunk_size": self.chunk_size,
-                "chunk_overlap": self.chunk_overlap,
+                "chunk_size": self.chunk_size if not self.use_full_context else None,
+                "chunk_overlap": self.chunk_overlap
+                if not self.use_full_context
+                else None,
             },
         }
 
@@ -419,3 +447,35 @@ class Summarizer:
         with open(file_path, "w") as f:
             json.dump(data, f, indent=2)
         logger.info(f"Summary exported to {file_path}")
+
+    async def _fetch_youtube_metadata(self) -> None:
+        """Fetch metadata from YouTube API using direct HTTP request"""
+        api_key = os.getenv("YOUTUBE_API_KEY")
+        if not api_key or not self.video_id:
+            return
+
+        url = f"https://www.googleapis.com/youtube/v3/videos?id={self.video_id}&key={api_key}&part=snippet,statistics"
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    if response.status != 200:
+                        logger.error(f"YouTube API error: {response.status}")
+                        return
+
+                    data = await response.json()
+                    if not data.get("items"):
+                        logger.error("No video data found")
+                        return
+
+                    video = data["items"][0]
+                    self.metadata = {
+                        "title": video["snippet"]["title"],
+                        "description": video["snippet"]["description"],
+                        "publishedAt": video["snippet"]["publishedAt"],
+                        "viewCount": video["statistics"]["viewCount"],
+                        "likeCount": video["statistics"].get("likeCount", 0),
+                        "channelTitle": video["snippet"]["channelTitle"],
+                    }
+        except aiohttp.ClientError as e:
+            logger.error(f"Error fetching YouTube metadata: {e}")

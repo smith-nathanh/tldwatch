@@ -20,8 +20,8 @@ async def main():
         # Initialize summarizer
         logger.info("Initializing summarizer")
         summarizer = Summarizer(
-            provider="ollama",
-            model="llama3.1:8b",
+            provider="openai",
+            model="gpt-4o-mini",
             use_full_context=False,
             temperature=0.7,
             chunk_size=5000,

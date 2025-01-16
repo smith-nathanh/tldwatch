@@ -17,6 +17,30 @@ dependencies = [
     "youtube-transcript-api>=0.6.3",
 ]
 
+# Add CLI entry point
+[project.scripts]
+tldwatch = "tldwatch.cli.main:cli_entry"
+
+# Optional development dependencies
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "black",
+    "ruff",
+    "mypy",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# Package discovery
+[tool.hatch.build.targets.wheel]
+packages = ["src/tldwatch"]
+
+[tool.hatch.build]
+include = [
+    "src/tldwatch/**/*.py",
+    "src/tldwatch/py.typed",
+]

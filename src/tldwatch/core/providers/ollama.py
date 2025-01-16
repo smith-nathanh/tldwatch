@@ -28,7 +28,7 @@ class OllamaProvider(BaseProvider):
 
     # Default context windows for common models
     CONTEXT_WINDOWS = {
-        "llama3.1:8b": 4096,
+        "llama3.1:8b": 128000,
         "llama3.3:70b": 8192,  # need to verify
         "phi4:14b": 8192,
     }

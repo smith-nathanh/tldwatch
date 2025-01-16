@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Optional
 
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Confirm
 
 from ..core.config import Config
@@ -25,7 +24,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # Input options - mutually exclusive group for video_id/url/stdin
-    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group = parser.add_mutually_exclusive_group()  # No longer required by default
     input_group.add_argument("--video-id", help="YouTube video ID")
     input_group.add_argument("url", nargs="?", help="YouTube video URL")
     input_group.add_argument(
@@ -110,6 +109,12 @@ async def run_summarizer(
     chunk_size = chunk_size or config.get("chunk_size", 4000)
     temperature = temperature or config.get("temperature", 0.7)
 
+    # Print provider and model info as a persistent message
+    console.print()  # Add a blank line for spacing
+    console.print(f"Provider: {provider}")
+    console.print(f"Model: {model}")
+    console.print()  # Add a blank line for spacing
+
     summarizer = Summarizer(
         provider=provider,
         model=model,
@@ -119,15 +124,11 @@ async def run_summarizer(
         youtube_api_key=os.environ.get("YOUTUBE_API_KEY"),
     )
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-        transient=True,
-    ) as progress:
-        progress.add_task(description="Generating summary...", total=None)
+    # Use live display instead of Progress
+    with console.status("Generating summary...", spinner="dots"):
         try:
-            return await summarizer.get_summary(video_id=video_id)
+            summary = await summarizer.get_summary(video_id=video_id)
+            return summary
         except SummarizerError as e:
             console.print(f"[red]Error: {str(e)}[/red]")
             sys.exit(1)
@@ -175,6 +176,7 @@ def write_output(summary: str, output_file: Optional[str]) -> None:
     else:
         # Write to stdout
         console.print(summary)
+        console.print()  # Add a blank line for spacing
 
 
 def check_environment() -> None:
@@ -201,11 +203,15 @@ async def main() -> None:
     # Check environment variables
     check_environment()
 
-    # Save config if requested
+    # Handle save config first
     if args.save_config:
         save_config(args)
         if not args.video_id and not args.url and not args.stdin:
             return
+
+    # Validate input requirements if not just saving config
+    if not args.save_config and not (args.video_id or args.url or args.stdin):
+        parser.error("one of the arguments --video-id url --stdin is required")
 
     # Get input source
     video_id = get_input_source(args)
@@ -222,6 +228,7 @@ async def main() -> None:
 
     # Write output
     write_output(summary, args.out)
+    sys.exit(0)  # Explicitly exit after completion
 
 
 def cli_entry() -> None:

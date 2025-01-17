@@ -51,6 +51,7 @@ class BaseProvider(ABC):
         "groq": "GROQ_API_KEY",
         "cerebras": "CEREBRAS_API_KEY",
         "deepseek": "DEEPSEEK_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
         "ollama": None,  # Local provider doesn't need API key
     }
 

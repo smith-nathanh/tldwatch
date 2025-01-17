@@ -6,6 +6,7 @@ import aiohttp
 from youtube_transcript_api import YouTubeTranscriptApi
 
 from ..utils.url_parser import extract_video_id
+from .providers.anthropic import AnthropicProvider
 from .providers.base import ProviderError
 from .providers.cerebras import CerebrasProvider
 from .providers.deepseek import DeepSeekProvider
@@ -27,6 +28,7 @@ class Summarizer:
 
     PROVIDERS = {
         "openai": OpenAIProvider,
+        "anthropic": AnthropicProvider,
         "deepseek": DeepSeekProvider,
         "groq": GroqProvider,
         "cerebras": CerebrasProvider,
@@ -108,14 +110,26 @@ class Summarizer:
         if not self.transcript.strip():
             raise SummarizerError("No transcript available to summarize")
 
-        if (
-            self.use_full_context
-            and len(self.transcript) <= self.provider.context_window
-        ):
-            logger.info("Using full context for summary")
+        # Count tokens in transcript
+        transcript_tokens = self.provider.count_tokens(self.transcript)
+
+        # Leave room for prompt and response within context window
+        # Use 90% of context window to leave room for prompt and response
+        max_input_tokens = int(self.provider.context_window * 0.9)
+
+        if self.use_full_context and transcript_tokens <= max_input_tokens:
+            logger.info(
+                f"Using full context for summary (transcript: {transcript_tokens} tokens)"
+            )
             self.summary = await self._generate_full_summary()
         else:
-            logger.info("Using chunked approach for summary")
+            if self.use_full_context:
+                logger.info(
+                    f"Transcript too long for full context ({transcript_tokens} tokens > {max_input_tokens} tokens), "
+                    "falling back to chunked approach"
+                )
+            else:
+                logger.info("Using chunked approach for summary")
             self.summary = await self._generate_chunked_summary()
 
         return self.summary

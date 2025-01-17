@@ -35,7 +35,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--provider",
         type=str,
-        choices=["openai", "groq", "cerebras", "deepseek", "ollama"],
+        choices=["openai", "groq", "anthropic", "cerebras", "deepseek", "ollama"],
         help="LLM provider to use (defaults to config)",
     )
     parser.add_argument(
@@ -58,6 +58,11 @@ def create_parser() -> argparse.ArgumentParser:
         "--save-config",
         action="store_true",
         help="Save current settings as default configuration",
+    )
+    parser.add_argument(
+        "--print-config",
+        action="store_true",
+        help="Print current configuration settings and config file location",
     )
 
     return parser
@@ -149,17 +154,18 @@ def save_config(args: argparse.Namespace) -> None:
     console.print("[green]Configuration saved successfully[/green]")
 
 
-def check_environment() -> None:
+def check_environment(args) -> None:
     """Check for required environment variables"""
     required_vars = {
         "openai": "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
         "groq": "GROQ_API_KEY",
         "cerebras": "CEREBRAS_API_KEY",
         "deepseek": "DEEPSEEK_API_KEY",
     }
 
     config = Config.load()
-    provider = config.get("provider", "openai")
+    provider = args.provider if args.provider else config.get("provider", "openai")
 
     if env_var := required_vars.get(provider):
         if not os.environ.get(env_var):
@@ -172,7 +178,14 @@ async def main() -> None:
     args = parser.parse_args()
 
     # Check environment variables
-    check_environment()
+    check_environment(args)
+
+    if args.print_config:
+        config = Config.load()
+        console.print("[bold]Current Configuration:[/bold]")
+        console.print(config)
+        console.print(f"[bold]Config file location:[/bold] {Config.get_config_path()}")
+        sys.exit(0)
 
     # Check output is json
     if args.out and not args.out.endswith(".json"):

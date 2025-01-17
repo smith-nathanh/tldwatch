@@ -26,6 +26,8 @@ tldwatch = "tldwatch.cli.main:cli_entry"
 dev = [
     "pytest",
     "pytest-asyncio",
+    "pytest-mock",
+    "pytest-cov",
     "black",
     "ruff",
     "mypy",

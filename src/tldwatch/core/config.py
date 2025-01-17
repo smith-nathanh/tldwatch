@@ -30,14 +30,16 @@ class Config:
         "ollama": "mistral",
     }
 
-    def __init__(self, config_data: Dict[str, Any]):
+    def __init__(self, config_data: Dict[str, Any], config_path: Optional[Path] = None):
         """
         Initialize configuration with provided data
 
         Args:
             config_data: Dictionary containing configuration values
+            config_path: Optional path to the configuration file
         """
         self._config = config_data
+        self._config_path = config_path or self.get_config_path()
 
     @classmethod
     def get_config_path(cls) -> Path:
@@ -51,14 +53,17 @@ class Config:
         return config_dir / "config.json"
 
     @classmethod
-    def load(cls) -> "Config":
+    def load(cls, config_path: Optional[Path] = None) -> "Config":
         """
         Load configuration from file, creating with defaults if it doesn't exist
+
+        Args:
+            config_path: Optional path to the configuration file
 
         Returns:
             Config instance with loaded or default values
         """
-        config_path = cls.get_config_path()
+        config_path = config_path or cls.get_config_path()
 
         # Start with default values
         config_data = cls.DEFAULTS.copy()
@@ -81,21 +86,14 @@ class Config:
         ):
             config_data["model"] = cls.PROVIDER_MODELS[config_data["provider"]]
 
-        return cls(config_data)
+        return cls(config_data, config_path)
 
-    def save(self) -> None:
-        """Save current configuration to file"""
-        config_path = self.get_config_path()
-
-        try:
-            # Create config directory if it doesn't exist
-            config_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Write configuration
-            with open(config_path, "w") as f:
-                json.dump(self._config, f, indent=2)
-        except Exception as e:
-            raise ConfigError(f"Error saving configuration: {str(e)}")
+    def save(self):
+        """Save configuration to file"""
+        config_path = self._config_path
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(config_path, "w") as f:
+            json.dump(self._config, f, indent=4)
 
     def get(self, key: str, default: Any = None) -> Any:
         """

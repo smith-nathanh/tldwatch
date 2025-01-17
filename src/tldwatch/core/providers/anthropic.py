@@ -213,23 +213,3 @@ class AnthropicProvider(BaseProvider):
                 raise ProviderError(f"Invalid API response: {str(e)}")
 
         raise last_exception or ProviderError("Maximum retry attempts exceeded")
-
-    async def close(self):
-        """Close the aiohttp session"""
-        if self._session is not None and not self._session.closed:
-            await self._session.close()
-            self._session = None
-
-    def __del__(self):
-        """Ensure the session is closed when the provider is deleted"""
-        if self._session is not None and not self._session.closed:
-            import asyncio
-
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    loop.create_task(self.close())
-                else:
-                    loop.run_until_complete(self.close())
-            except Exception:
-                pass  # We're in cleanup, so we can't raise exceptions

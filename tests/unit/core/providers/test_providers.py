@@ -7,7 +7,7 @@ from tests.conftest import PROVIDER_TEST_CONFIG, PROVIDERS, mock_successful_comp
 
 @pytest.mark.parametrize(
     "provider_name,provider_instance",
-    [(name, "provider_instance") for name in PROVIDERS.keys()],
+    [(name, name) for name in PROVIDERS.keys()],
     indirect=["provider_instance"],
 )
 class TestProviderInterface:

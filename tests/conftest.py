@@ -92,8 +92,10 @@ def mock_env_vars():
 @pytest.fixture
 def provider_instance(request, mock_env_vars):
     """Create provider instance for testing"""
-    provider_class = PROVIDERS[request.param]
-    config = PROVIDER_TEST_CONFIG.get(request.param, {})
+    provider_name = request.param  # We're getting the provider name string
+    provider_class = PROVIDERS[provider_name]  # Look up the class using the name
+    config = PROVIDER_TEST_CONFIG.get(provider_name, {})
+
     return provider_class(
         model=config.get("default_model", "test-model"), temperature=0.7
     )

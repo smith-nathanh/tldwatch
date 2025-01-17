@@ -1,15 +1,16 @@
 # tldwatch
 
-A Python library for generating concise summaries of YouTube video transcripts (or any transcript) using various AI model providers.
+A Python library for generating summaries of YouTube video transcripts (or any transcript) using a selection of AI providers.
 
 ## Features
 
 - Generate summaries from YouTube videos using video IDs or URLs
-- Process custom transcript text directly
+- Process other video transcripts text directly
 - Support for multiple AI providers:
-  - OpenAI (gpt-4o, GPT-3.5)
+  - OpenAI (gpt-4o, gpt-4o-mini)
   - Groq (Mixtral, LLaMA)
-  - Cerebras
+  - Cerebras (Llama)
+  - DeepSeek (deepseek-chat)
   - Ollama (local models)
 - Command-line interface for quick summaries
 - Python library for programmatic usage
@@ -74,7 +75,7 @@ async def main():
     )
     
     # Export summary
-    summarizer.export_summary("summary.json")
+    await summarizer.export_summary("summary.json")
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -91,6 +92,7 @@ Set up your API keys:
 export OPENAI_API_KEY="your-key-here"
 export GROQ_API_KEY="your-key-here"
 export CEREBRAS_API_KEY="your-key-here"
+export DEEPSEEK_API_KEY="your-key-here"
 
 # Optional, for YouTube metadata enrichment
 export YOUTUBE_API_KEY="your-key-here"

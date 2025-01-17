@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
@@ -9,6 +8,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from ..utils.url_parser import extract_video_id
 from .providers.base import ProviderError
 from .providers.cerebras import CerebrasProvider
+from .providers.deepseek import DeepSeekProvider
 from .providers.groq import GroqProvider
 from .providers.ollama import OllamaProvider
 from .providers.openai import OpenAIProvider
@@ -27,6 +27,7 @@ class Summarizer:
 
     PROVIDERS = {
         "openai": OpenAIProvider,
+        "deepseek": DeepSeekProvider,
         "groq": GroqProvider,
         "cerebras": CerebrasProvider,
         "ollama": OllamaProvider,
@@ -93,7 +94,7 @@ class Summarizer:
             await self._fetch_transcript()
 
             if self.youtube_api_key:
-                await self._fetch_metadata()
+                await self._fetch_youtube_metadata()
 
             return await self._generate_summary()
         except Exception as e:
@@ -307,42 +308,6 @@ class Summarizer:
             logger.error(f"Error fetching transcript: {str(e)}")
             raise SummarizerError(f"Error fetching transcript: {str(e)}")
 
-    async def _fetch_metadata(self) -> None:
-        """Fetch video metadata if YouTube API key is available"""
-        self.youtube_api_key = os.getenv("YOUTUBE_API_KEY")
-        if not self.youtube_api_key or not self.video_id:
-            logger.info(
-                "YouTube API key or video ID not available, skipping metadata fetch"
-            )
-            return
-
-        url = f"https://www.googleapis.com/youtube/v3/videos?part=snippet&id={self.video_id}&key={self.youtube_api_key}"
-
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as response:
-                    if response.status != 200:
-                        logger.error(f"Failed to fetch metadata: {response.status}")
-                        return
-                    data = await response.json()
-                    if "items" not in data or not data["items"]:
-                        logger.error("No metadata found for the given video ID")
-                        return
-
-                    snippet = data["items"][0]["snippet"]
-                    self.metadata = {
-                        "title": snippet.get("title"),
-                        "channel": snippet.get("channelTitle"),
-                        "url": f"https://www.youtube.com/watch?v={self.video_id}",
-                    }
-                    logger.debug(
-                        f"Fetched metadata for video ID {self.video_id}: {self.metadata}"
-                    )
-        except Exception as e:
-            logger.error(
-                f"Error fetching metadata for video ID {self.video_id}: {str(e)}"
-            )
-
     async def _retry_with_backoff(self, coro, max_retries: int, *args, **kwargs):
         base_delay = 1.0
         for attempt in range(max_retries):
@@ -427,10 +392,8 @@ class Summarizer:
             await self._fetch_youtube_metadata()
 
         data = {
-            "video_id": self.video_id,  # Will be None for direct transcript input
             "transcript": self.transcript,
             "summary": self.summary,
-            "metadata": self.metadata,
             "provider": self.provider_name,
             "model": self.provider.model,
             "settings": {
@@ -440,6 +403,8 @@ class Summarizer:
                 if not self.use_full_context
                 else None,
             },
+            "video_id": self.video_id,  # Will be None for direct transcript input
+            "metadata": self.metadata,
         }
 
         import json
@@ -449,12 +414,15 @@ class Summarizer:
         logger.info(f"Summary exported to {file_path}")
 
     async def _fetch_youtube_metadata(self) -> None:
-        """Fetch metadata from YouTube API using direct HTTP request"""
-        api_key = os.getenv("YOUTUBE_API_KEY")
-        if not api_key or not self.video_id:
+        """Fetch and store metadata from YouTube API including video statistics and details.
+        Requires a valid YouTube API key and video ID."""
+        if not self.youtube_api_key or not self.video_id:
+            logger.info(
+                "YouTube API key or video ID not available, skipping metadata fetch"
+            )
             return
 
-        url = f"https://www.googleapis.com/youtube/v3/videos?id={self.video_id}&key={api_key}&part=snippet,statistics"
+        url = f"https://www.googleapis.com/youtube/v3/videos?id={self.video_id}&key={self.youtube_api_key}&part=snippet,statistics"
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -476,6 +444,12 @@ class Summarizer:
                         "viewCount": video["statistics"]["viewCount"],
                         "likeCount": video["statistics"].get("likeCount", 0),
                         "channelTitle": video["snippet"]["channelTitle"],
+                        "url": f"https://www.youtube.com/watch?v={self.video_id}",
                     }
+                    logger.debug(
+                        f"Successfully fetched metadata for video ID {self.video_id}"
+                    )
         except aiohttp.ClientError as e:
             logger.error(f"Error fetching YouTube metadata: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error fetching YouTube metadata: {str(e)}")

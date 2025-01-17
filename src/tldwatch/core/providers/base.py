@@ -50,6 +50,7 @@ class BaseProvider(ABC):
         "openai": "OPENAI_API_KEY",
         "groq": "GROQ_API_KEY",
         "cerebras": "CEREBRAS_API_KEY",
+        "deepseek": "DEEPSEEK_API_KEY",
         "ollama": None,  # Local provider doesn't need API key
     }
 

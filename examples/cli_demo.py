@@ -65,6 +65,7 @@ def check_environment() -> bool:
         "OPENAI_API_KEY": "OpenAI",
         "GROQ_API_KEY": "Groq",
         "CEREBRAS_API_KEY": "Cerebras",
+        "DEEPSEEK_API_KEY": "DeepSeek",
     }
 
     missing = [name for var, name in required_vars.items() if not os.environ.get(var)]

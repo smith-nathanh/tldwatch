@@ -24,7 +24,7 @@ class Config:
 
     # Provider-specific default models
     PROVIDER_MODELS = {
-        "openai": "gpt-4o",
+        "openai": "gpt-4o-mini",
         "groq": "mixtral-8x7b-32768",
         "cerebras": "llama3.1-8b",
         "ollama": "mistral",

@@ -1,13 +1,10 @@
 import argparse
 import asyncio
-import json
 import os
 import sys
-from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from rich.console import Console
-from rich.prompt import Confirm
 
 from ..core.config import Config
 from ..core.summarizer import Summarizer, SummarizerError
@@ -32,13 +29,13 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # Output options
-    parser.add_argument("--out", type=str, help="Output file path (defaults to stdout)")
+    parser.add_argument("--out", type=str, help="Output file path must be json file")
 
     # Provider configuration
     parser.add_argument(
         "--provider",
         type=str,
-        choices=["openai", "groq", "cerebras", "ollama"],
+        choices=["openai", "groq", "cerebras", "deepseek", "ollama"],
         help="LLM provider to use (defaults to config)",
     )
     parser.add_argument(
@@ -99,7 +96,7 @@ async def run_summarizer(
     chunk_size: Optional[int] = None,
     temperature: Optional[float] = None,
     use_full_context: bool = False,
-) -> str:
+) -> Tuple[str, Optional[Summarizer]]:
     """Run the summarizer with progress indication"""
     config = Config.load()
 
@@ -127,8 +124,8 @@ async def run_summarizer(
     # Use live display instead of Progress
     with console.status("Generating summary...", spinner="dots"):
         try:
-            summary = await summarizer.get_summary(video_id=video_id)
-            return summary
+            await summarizer.get_summary(video_id=video_id)
+            return summarizer
         except SummarizerError as e:
             console.print(f"[red]Error: {str(e)}[/red]")
             sys.exit(1)
@@ -152,39 +149,13 @@ def save_config(args: argparse.Namespace) -> None:
     console.print("[green]Configuration saved successfully[/green]")
 
 
-def write_output(summary: str, output_file: Optional[str]) -> None:
-    """Write summary to specified output or stdout"""
-    if output_file:
-        output_path = Path(output_file)
-
-        # Check if file exists
-        if output_path.exists() and not Confirm.ask(
-            f"File {output_file} exists. Overwrite?"
-        ):
-            return
-
-        # Create parent directories if needed
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Write the summary
-        with open(output_path, "w") as f:
-            if output_file.endswith(".json"):
-                json.dump({"summary": summary}, f, indent=2)
-            else:
-                f.write(summary)
-        console.print(f"[green]Summary saved to {output_file}[/green]")
-    else:
-        # Write to stdout
-        console.print(summary)
-        console.print()  # Add a blank line for spacing
-
-
 def check_environment() -> None:
     """Check for required environment variables"""
     required_vars = {
         "openai": "OPENAI_API_KEY",
         "groq": "GROQ_API_KEY",
         "cerebras": "CEREBRAS_API_KEY",
+        "deepseek": "DEEPSEEK_API_KEY",
     }
 
     config = Config.load()
@@ -203,6 +174,11 @@ async def main() -> None:
     # Check environment variables
     check_environment()
 
+    # Check output is json
+    if args.out and not args.out.endswith(".json"):
+        console.print("[red]Error: Output file must be a JSON file[/red]")
+        sys.exit(1)
+
     # Handle save config first
     if args.save_config:
         save_config(args)
@@ -217,7 +193,7 @@ async def main() -> None:
     video_id = get_input_source(args)
 
     # Run summarizer
-    summary = await run_summarizer(
+    summarizer = await run_summarizer(
         video_id,
         provider=args.provider,
         model=args.model,
@@ -226,8 +202,13 @@ async def main() -> None:
         use_full_context=args.full_context,
     )
 
-    # Write output
-    write_output(summary, args.out)
+    if args.out:
+        await summarizer.export_summary(args.out)
+        console.print(f"[green]Summary saved to {args.out}[/green]")
+    else:
+        # Write to stdout
+        console.print(summarizer.summary)
+        console.print()  # Add a blank line for spacing
     sys.exit(0)  # Explicitly exit after completion
 
 

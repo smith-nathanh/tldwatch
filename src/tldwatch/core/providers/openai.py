@@ -43,7 +43,6 @@ class OpenAIProvider(BaseProvider):
 
         self._encoding = tiktoken.encoding_for_model(model)
         self._retry_count = 0
-        self._session = aiohttp.ClientSession()  # Reuse the same session
 
     def _get_provider_name(self) -> str:
         return "openai"
@@ -92,57 +91,54 @@ class OpenAIProvider(BaseProvider):
 
         while self._retry_count < self.rate_limit_config.max_retries:
             try:
-                # Create a new session if we don't have one
-                if self._session is None:
-                    self._session = aiohttp.ClientSession()
+                async with aiohttp.ClientSession() as session:
+                    headers = {
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    }
 
-                headers = {
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                }
+                    data = {
+                        "model": self.model,
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": "You are a helpful assistant that generates concise summaries.",
+                            },
+                            {"role": "user", "content": prompt},
+                        ],
+                        "temperature": self.temperature,
+                        **kwargs,
+                    }
 
-                data = {
-                    "model": self.model,
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a helpful assistant that generates concise summaries.",
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                    "temperature": self.temperature,
-                    **kwargs,
-                }
-
-                async with self._session.post(
-                    f"{self.API_BASE}/chat/completions",
-                    headers=headers,
-                    json=data,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as response:
-                    if response.status == 401:
-                        raise AuthenticationError("Invalid API key")
-                    elif response.status == 429:
-                        retry_after = float(
-                            response.headers.get(
-                                "Retry-After", self.rate_limit_config.retry_delay
+                    async with session.post(
+                        f"{self.API_BASE}/chat/completions",
+                        headers=headers,
+                        json=data,
+                        timeout=aiohttp.ClientTimeout(total=30),
+                    ) as response:
+                        if response.status == 401:
+                            raise AuthenticationError("Invalid API key")
+                        elif response.status == 429:
+                            retry_after = float(
+                                response.headers.get(
+                                    "Retry-After", self.rate_limit_config.retry_delay
+                                )
                             )
-                        )
-                        # Instead of raising immediately, we'll handle the retry
-                        self._retry_count += 1
-                        if self._retry_count >= self.rate_limit_config.max_retries:
-                            raise RateLimitError(retry_after=retry_after)
-                        await asyncio.sleep(retry_after)
-                        continue
+                            # Instead of raising immediately, we'll handle the retry
+                            self._retry_count += 1
+                            if self._retry_count >= self.rate_limit_config.max_retries:
+                                raise RateLimitError(retry_after=retry_after)
+                            await asyncio.sleep(retry_after)
+                            continue
 
-                    elif response.status != 200:
-                        error_text = await response.text()
-                        raise ProviderError(
-                            f"API error (status {response.status}): {error_text}"
-                        )
+                        elif response.status != 200:
+                            error_text = await response.text()
+                            raise ProviderError(
+                                f"API error (status {response.status}): {error_text}"
+                            )
 
-                    response_data = await response.json()
-                    return response_data["choices"][0]["message"]["content"]
+                        response_data = await response.json()
+                        return response_data["choices"][0]["message"]["content"]
 
             except RateLimitError as e:
                 last_exception = e

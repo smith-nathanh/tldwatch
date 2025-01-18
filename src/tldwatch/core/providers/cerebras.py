@@ -44,11 +44,6 @@ class CerebrasProvider(BaseProvider):
         if not self.api_key:
             raise AuthenticationError("Cerebras API key is required")
 
-        # Initialize session for reuse
-        self._session = aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(limit=30),
-            timeout=aiohttp.ClientTimeout(total=30),
-        )
         self._retry_count = 0
 
     def _get_provider_name(self) -> str:
@@ -117,62 +112,59 @@ class CerebrasProvider(BaseProvider):
 
         while self._retry_count < self.rate_limit_config.max_retries:
             try:
-                # Create a new session if we don't have one
-                if self._session is None or self._session.closed:
-                    self._session = aiohttp.ClientSession(
-                        connector=aiohttp.TCPConnector(limit=30),
-                        timeout=aiohttp.ClientTimeout(total=30),
-                    )
-
-                headers = {
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                }
-
-                data = {
-                    "model": self.model,
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a helpful assistant that generates concise summaries.",
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                    "temperature": self.temperature,
-                    "stream": False,
-                    **kwargs,
-                }
-
-                async with self._session.post(
-                    f"{self.API_BASE}/chat/completions",
-                    headers=headers,
-                    json=data,
+                async with aiohttp.ClientSession(
+                    connector=aiohttp.TCPConnector(limit=30),
                     timeout=aiohttp.ClientTimeout(total=30),
-                ) as response:
-                    if response.status == 401:
-                        raise AuthenticationError("Invalid API key")
-                    elif response.status == 429:
-                        retry_after = float(
-                            response.headers.get(
-                                "Retry-After", self.rate_limit_config.retry_delay
+                ) as session:
+                    headers = {
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                    }
+
+                    data = {
+                        "model": self.model,
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": "You are a helpful assistant that generates concise summaries.",
+                            },
+                            {"role": "user", "content": prompt},
+                        ],
+                        "temperature": self.temperature,
+                        "stream": False,
+                        **kwargs,
+                    }
+
+                    async with session.post(
+                        f"{self.API_BASE}/chat/completions",
+                        headers=headers,
+                        json=data,
+                        timeout=aiohttp.ClientTimeout(total=30),
+                    ) as response:
+                        if response.status == 401:
+                            raise AuthenticationError("Invalid API key")
+                        elif response.status == 429:
+                            retry_after = float(
+                                response.headers.get(
+                                    "Retry-After", self.rate_limit_config.retry_delay
+                                )
                             )
-                        )
-                        # Instead of raising immediately, we'll handle the retry
-                        self._retry_count += 1
-                        if self._retry_count >= self.rate_limit_config.max_retries:
-                            raise RateLimitError(retry_after=retry_after)
-                        await asyncio.sleep(retry_after)
-                        continue
+                            # Instead of raising immediately, we'll handle the retry
+                            self._retry_count += 1
+                            if self._retry_count >= self.rate_limit_config.max_retries:
+                                raise RateLimitError(retry_after=retry_after)
+                            await asyncio.sleep(retry_after)
+                            continue
 
-                    elif response.status != 200:
-                        error_text = await response.text()
-                        raise ProviderError(
-                            f"API error (status {response.status}): {error_text}"
-                        )
+                        elif response.status != 200:
+                            error_text = await response.text()
+                            raise ProviderError(
+                                f"API error (status {response.status}): {error_text}"
+                            )
 
-                    response_data = await response.json()
-                    return response_data["choices"][0]["message"]["content"]
+                        response_data = await response.json()
+                        return response_data["choices"][0]["message"]["content"]
 
             except RateLimitError as e:
                 last_exception = e
@@ -191,23 +183,3 @@ class CerebrasProvider(BaseProvider):
                 raise ProviderError(f"Invalid API response: {str(e)}")
 
         raise last_exception or ProviderError("Maximum retry attempts exceeded")
-
-    async def close(self):
-        """Close the aiohttp session"""
-        if self._session is not None and not self._session.closed:
-            await self._session.close()
-            self._session = None
-
-    def __del__(self):
-        """Ensure the session is closed when the provider is deleted"""
-        if self._session is not None and not self._session.closed:
-            import asyncio
-
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    loop.create_task(self.close())
-                else:
-                    loop.run_until_complete(self.close())
-            except Exception:
-                pass  # We're in cleanup, so we can't raise exceptions

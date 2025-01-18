@@ -51,11 +51,6 @@ class AnthropicProvider(BaseProvider):
         if not self.api_key:
             raise AuthenticationError("Anthropic API key is required")
 
-        # Initialize session for reuse
-        self._session = aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(limit=30),
-            timeout=aiohttp.ClientTimeout(total=30),
-        )
         self._retry_count = 0
 
     def _get_provider_name(self) -> str:
@@ -137,64 +132,61 @@ class AnthropicProvider(BaseProvider):
 
         while self._retry_count < self.rate_limit_config.max_retries:
             try:
-                # Create a new session if we don't have one
-                if self._session is None or self._session.closed:
-                    self._session = aiohttp.ClientSession(
-                        connector=aiohttp.TCPConnector(limit=30),
-                        timeout=aiohttp.ClientTimeout(total=30),
-                    )
-
-                headers = {
-                    "x-api-key": self.api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                }
-
-                max_tokens = kwargs.get("max_tokens", 4096)
-
-                data = {
-                    "model": self.model,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": prompt,
-                        }
-                    ],
-                    "temperature": self.temperature,
-                    "max_tokens": max_tokens,
-                    "stream": False,
-                    **kwargs,
-                }
-
-                async with self._session.post(
-                    f"{self.API_BASE}/messages",
-                    headers=headers,
-                    json=data,
+                async with aiohttp.ClientSession(
+                    connector=aiohttp.TCPConnector(limit=30),
                     timeout=aiohttp.ClientTimeout(total=30),
-                ) as response:
-                    if response.status == 401:
-                        raise AuthenticationError("Invalid API key")
-                    elif response.status == 429:
-                        retry_after = float(
-                            response.headers.get(
-                                "Retry-After", self.rate_limit_config.retry_delay
+                ) as session:
+                    headers = {
+                        "x-api-key": self.api_key,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    }
+
+                    max_tokens = kwargs.get("max_tokens", 4096)
+
+                    data = {
+                        "model": self.model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": prompt,
+                            }
+                        ],
+                        "temperature": self.temperature,
+                        "max_tokens": max_tokens,
+                        "stream": False,
+                        **kwargs,
+                    }
+
+                    async with session.post(
+                        f"{self.API_BASE}/messages",
+                        headers=headers,
+                        json=data,
+                        timeout=aiohttp.ClientTimeout(total=30),
+                    ) as response:
+                        if response.status == 401:
+                            raise AuthenticationError("Invalid API key")
+                        elif response.status == 429:
+                            retry_after = float(
+                                response.headers.get(
+                                    "Retry-After", self.rate_limit_config.retry_delay
+                                )
                             )
-                        )
-                        # Instead of raising immediately, we'll handle the retry
-                        self._retry_count += 1
-                        if self._retry_count >= self.rate_limit_config.max_retries:
-                            raise RateLimitError(retry_after=retry_after)
-                        await asyncio.sleep(retry_after)
-                        continue
+                            # Instead of raising immediately, we'll handle the retry
+                            self._retry_count += 1
+                            if self._retry_count >= self.rate_limit_config.max_retries:
+                                raise RateLimitError(retry_after=retry_after)
+                            await asyncio.sleep(retry_after)
+                            continue
 
-                    elif response.status != 200:
-                        error_text = await response.text()
-                        raise ProviderError(
-                            f"API error (status {response.status}): {error_text}"
-                        )
+                        elif response.status != 200:
+                            error_text = await response.text()
+                            raise ProviderError(
+                                f"API error (status {response.status}): {error_text}"
+                            )
 
-                    response_data = await response.json()
-                    return response_data["content"][0]["text"]
+                        response_data = await response.json()
+                        return response_data["content"][0]["text"]
 
             except RateLimitError as e:
                 last_exception = e

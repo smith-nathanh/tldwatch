@@ -72,9 +72,9 @@ def sample_transcript():
     ) * 25  # Makes it long enough to test chunking
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_env_vars():
-    """Mock environment variables for API keys"""
+    """Mock environment variables for API keys. Automatically used in all tests."""
     with patch.dict(
         os.environ,
         {
@@ -90,15 +90,16 @@ def mock_env_vars():
 
 
 @pytest.fixture
-def provider_instance(request, mock_env_vars):
+def provider_instance(request):
     """Create provider instance for testing"""
-    provider_name = request.param  # We're getting the provider name string
-    provider_class = PROVIDERS[provider_name]  # Look up the class using the name
+    provider_name = request.param
+    provider_class = PROVIDERS[provider_name]
     config = PROVIDER_TEST_CONFIG.get(provider_name, {})
 
-    return provider_class(
+    instance = provider_class(
         model=config.get("default_model", "test-model"), temperature=0.7
     )
+    return instance
 
 
 @pytest.fixture

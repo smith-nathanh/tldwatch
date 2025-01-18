@@ -74,32 +74,9 @@ class BaseProvider(ABC):
         self._request_timestamps: list[float] = []
         self._last_request_time: Optional[datetime] = None
 
-        # Initialize session as None for providers that use it
-        self._session = None
-
-    def __del__(self):
-        """Cleanup method that handles session closure for all provider implementations"""
-        if (
-            hasattr(self, "_session")
-            and self._session is not None
-            and not self._session.closed
-        ):
-            import asyncio
-
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    loop.create_task(self.close())
-                else:
-                    loop.run_until_complete(self.close())
-            except Exception:
-                pass  # We're in cleanup, so we can't raise exceptions
-
     async def close(self):
         """Close any resources held by the provider"""
-        if hasattr(self, "_session") and self._session is not None:
-            await self._session.close()
-            self._session = None
+        pass
 
     def _get_api_key(self) -> Optional[str]:
         """Get API key from environment variables"""

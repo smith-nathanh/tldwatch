@@ -149,7 +149,7 @@ summarizer = Summarizer(provider="groq", model="mixtral-8x7b-32768")
 summarizer = Summarizer(provider="cerebras", model="llama3.1-8b")
 
 # Ollama (local)
-summarizer = Summarizer(provider="ollama", model="mistral")
+summarizer = Summarizer(provider="ollama", model="llama3.1:8b")
 ```
 
 ### Advanced Configuration

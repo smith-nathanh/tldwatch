@@ -119,7 +119,7 @@ def main():
         providers = {
             "openai": "gpt-4o",
             "groq": "mixtral-8x7b-32768",
-            "ollama": "mistral",
+            "ollama": "llama3.1:8b",
         }
 
         provider = Prompt.ask(

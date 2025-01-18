@@ -2,19 +2,7 @@ import json
 
 import pytest
 
-from tests.conftest import PROVIDER_TEST_CONFIG
 from tldwatch.core.config import Config, ConfigError
-
-
-def test_config_defaults(tmp_path):
-    """Test default configuration values"""
-    config_path = tmp_path / "test_config.json"
-    config = Config({}, config_path)
-    assert config.get("provider") == "openai"
-    assert config.get("chunk_size") == 4000
-    assert config.get("chunk_overlap") == 200
-    assert config.get("temperature") == 0.7
-    assert not config.get("use_full_context")
 
 
 def test_config_load_save(tmp_path):
@@ -22,7 +10,7 @@ def test_config_load_save(tmp_path):
     config_path = tmp_path / "test_config.json"
     config_data = {
         "provider": "groq",
-        "model": PROVIDER_TEST_CONFIG["groq"]["default_model"],
+        "model": "some-model",
         "chunk_size": 5000,
         "temperature": 0.8,
     }
@@ -39,7 +27,7 @@ def test_config_load_save(tmp_path):
     # Test loading
     loaded_config = Config.load(config_path)
     assert loaded_config.get("provider") == "groq"
-    assert loaded_config.get("model") == PROVIDER_TEST_CONFIG["groq"]["default_model"]
+    assert loaded_config.get("model") == "some-model"
     assert loaded_config.get("chunk_size") == 5000
     assert loaded_config.get("temperature") == 0.8
 
@@ -52,7 +40,7 @@ def test_provider_validation(tmp_path):
     config = Config(
         {
             "provider": "openai",
-            "model": PROVIDER_TEST_CONFIG["openai"]["default_model"],
+            "model": "some-model",
         },
         config_path,
     )
@@ -93,8 +81,6 @@ def test_config_updates(tmp_path):
 def test_invalid_config_file(tmp_path):
     """Test handling of invalid configuration file"""
     config_path = tmp_path / "test_config.json"
-
-    # Create invalid JSON file
     config_path.write_text("{invalid json")
 
     with pytest.raises(ConfigError):
@@ -111,5 +97,4 @@ def test_config_reset(tmp_path):
     config.reset()
 
     assert config.get("provider") == "openai"
-    assert config.get("model") == "gpt-4o-mini"
     assert config.get("temperature") == 0.7

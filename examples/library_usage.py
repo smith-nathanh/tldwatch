@@ -52,7 +52,9 @@ async def provider_examples():
     print("OpenAI Summary:", summary)
 
     # Using local Ollama
-    ollama_summarizer = Summarizer(provider="ollama", model="mistral", temperature=0.7)
+    ollama_summarizer = Summarizer(
+        provider="ollama", model="llama3.1:8b", temperature=0.7
+    )
     summary = await ollama_summarizer.get_summary(video_id="QAgR4uQ15rc")
     print("Ollama Summary:", summary)
 

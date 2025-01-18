@@ -35,7 +35,7 @@ class OllamaProvider(BaseProvider):
 
     def __init__(
         self,
-        model: str = "mistral",
+        model: str = "llama3.1:8b",
         temperature: float = 0.7,
         rate_limit_config: Optional[RateLimitConfig] = None,
         use_full_context: bool = False,

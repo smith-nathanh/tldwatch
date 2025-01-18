@@ -23,29 +23,15 @@ PROVIDERS: Dict[str, Type[BaseProvider]] = {
     "ollama": OllamaProvider,
 }
 
-# Provider-specific test configurations
-PROVIDER_TEST_CONFIG = {
-    "openai": {
-        "default_model": "gpt-4o-mini",
-        "context_window": 128000,
-        "rate_limit": 3500,
-    },
-    "anthropic": {
-        "default_model": "claude-3-sonnet",
-        "context_window": 200000,
-        "rate_limit": 5000,
-    },
-    "groq": {
-        "default_model": "mixtral-8x7b-32768",
-        "context_window": 32768,
-        "rate_limit": 1000,
-    },
-    "cerebras": {
-        "default_model": "llama3.1-8b",
-        "context_window": 8192,
-        "rate_limit": 1000,
-    },
-}
+
+@pytest.fixture(autouse=True)
+def mock_ollama_models():
+    """Mock Ollama's available models check"""
+    with patch(
+        "tldwatch.core.providers.ollama.OllamaProvider._get_available_models"
+    ) as mock:
+        mock.return_value = ["llama3.1:8b"]
+        yield
 
 
 @pytest.fixture
@@ -78,11 +64,11 @@ def mock_env_vars():
     with patch.dict(
         os.environ,
         {
-            "OPENAI_API_KEY": "sk-test-key",
+            "OPENAI_API_KEY": "sk-proj-key",
             "ANTHROPIC_API_KEY": "sk-ant-test-key",
             "GROQ_API_KEY": "gsk-test-key",
-            "CEREBRAS_API_KEY": "cb-test-key",
-            "DEEPSEEK_API_KEY": "ds-test-key",
+            "CEREBRAS_API_KEY": "csk-test-key",
+            "DEEPSEEK_API_KEY": "sk-test-key",
             "YOUTUBE_API_KEY": "yt-test-key",
         },
     ):
@@ -94,11 +80,9 @@ def provider_instance(request):
     """Create provider instance for testing"""
     provider_name = request.param
     provider_class = PROVIDERS[provider_name]
-    config = PROVIDER_TEST_CONFIG.get(provider_name, {})
 
-    instance = provider_class(
-        model=config.get("default_model", "test-model"), temperature=0.7
-    )
+    # Create instance with default configuration
+    instance = provider_class(temperature=0.7)
     return instance
 
 

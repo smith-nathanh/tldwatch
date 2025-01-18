@@ -85,7 +85,7 @@ tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc \
 # Use local Ollama model
 tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc \
     --provider ollama \
-    --model mistral
+    --model llama3.1:8b
 
 Advanced Options:
 ---------------

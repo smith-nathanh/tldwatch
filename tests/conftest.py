@@ -106,30 +106,33 @@ def mock_youtube_api():
 
 @pytest.fixture
 def mock_successful_completion():
-    """Mock successful API completion response"""
+    """Mock successful API completion response - matches provider response processing"""
     return {
-        "openai": {
-            "choices": [{"message": {"content": "Summary"}}],
-            "usage": {"total_tokens": 100},
-        },
+        "openai": "Summary",  # OpenAI provider extracts content from response
+        "anthropic": "Summary",  # Anthropic provider extracts text from response
+        "groq": "Summary",  # Groq provider extracts content
+        "cerebras": "Summary",  # Cerebras returns generated text directly
+        "deepseek": "Summary",  # DeepSeek provider extracts content
+        "ollama": "Summary",  # Ollama returns response directly
+    }
+
+
+@pytest.fixture
+def mock_auth_error():
+    """Mock authentication error responses for each provider"""
+    return {
+        "openai": {"error": {"code": "invalid_api_key", "message": "Invalid API key"}},
         "anthropic": {
-            "content": [{"text": "Summary"}],
-            "usage": {"input_tokens": 50, "output_tokens": 50},
+            "error": {"type": "authentication_error", "message": "Invalid API key"}
         },
         "groq": {
-            "choices": [{"message": {"content": "Summary"}}],
-            "usage": {"total_tokens": 100},
+            "error": {"type": "authentication_error", "message": "Invalid API key"}
         },
-        "cerebras": {"generated_text": "Summary", "token_count": 100},
+        "cerebras": {"error": "Authentication failed", "status_code": 401},
         "deepseek": {
-            "choices": [{"message": {"content": "Summary"}}],
-            "usage": {"total_tokens": 100},
+            "error": {"code": "invalid_api_key", "message": "Invalid API key"}
         },
-        "ollama": {
-            "response": "Summary",
-            "total_duration": 1000,
-            "load_duration": 100,
-        },
+        "ollama": {"error": "Authentication error", "status_code": 401},
     }
 
 
@@ -144,21 +147,13 @@ def mock_rate_limit_error():
             "error": {"type": "rate_limit_error", "message": "Too many requests"}
         },
         "groq": {
-            "error": {"code": "rate_limit_exceeded", "message": "Rate limit exceeded"}
+            "error": {"type": "rate_limit_error", "message": "Rate limit exceeded"}
         },
         "cerebras": {"error": "Too many requests", "status_code": 429},
-    }
-
-
-@pytest.fixture
-def mock_auth_error():
-    """Mock authentication error responses"""
-    return {
-        "openai": {"error": {"code": "invalid_api_key", "message": "Invalid API key"}},
-        "anthropic": {
-            "error": {"type": "authentication_error", "message": "Invalid API key"}
+        "deepseek": {
+            "error": {"code": "rate_limit_exceeded", "message": "Rate limit exceeded"}
         },
-        # Add other providers' auth error formats
+        "ollama": {"error": "Too many requests", "status_code": 429},
     }
 
 
@@ -167,5 +162,12 @@ def mock_network_error():
     """Mock network error responses for timeout/connection issues"""
     return {
         provider: {"error": "Connection error", "status_code": 500}
-        for provider in PROVIDERS.keys()
+        for provider in [
+            "openai",
+            "anthropic",
+            "groq",
+            "cerebras",
+            "deepseek",
+            "ollama",
+        ]
     }

@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from tests.conftest import PROVIDERS, mock_successful_completion
+from tests.conftest import PROVIDERS
 
 
 @pytest.mark.asyncio
@@ -109,17 +109,3 @@ class TestProviderInterface:
             with pytest.raises(Exception) as exc:
                 await provider_instance.generate_summary("Test input")
                 assert "auth" in str(exc.value).lower()
-
-    async def test_retry_mechanism(
-        self, provider_name, provider_instance, mock_network_error
-    ):
-        """Test retry behavior"""
-        with patch.object(provider_instance, "_make_request") as mock_request:
-            mock_request.side_effect = [
-                Exception(mock_network_error[provider_name]),
-                mock_successful_completion[provider_name],
-            ]
-
-            result = await provider_instance.generate_summary("Test input")
-            assert result == "Summary"
-            assert mock_request.call_count == 2

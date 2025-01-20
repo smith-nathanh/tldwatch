@@ -160,6 +160,8 @@ class OllamaProvider(BaseProvider):
         Approximate token count for Ollama models.
         Using a conservative estimate of 4 characters per token.
         """
+        if not text:
+            return 0
         return len(text) // 4 + 1
 
     async def generate_summary(self, text: str) -> str:

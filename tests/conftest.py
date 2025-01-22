@@ -35,11 +35,21 @@ def mock_ollama_models():
 
 
 @pytest.fixture
-def mock_config():
-    """Configuration fixture for all tests"""
+def mock_config(request):
+    """Configuration fixture with provider-specific models"""
+    provider_models = {
+        "openai": "gpt-4o-mini",
+        "anthropic": "claude-3-5-sonnet-20241022",
+        "deepseek": "deepseek-chat",
+        "groq": "mixtral-8x7b-32768",
+        "cerebras": "llama3.1-8b",
+        "ollama": "llama3.1:8b",
+    }
+
+    provider = request.param if hasattr(request, "param") else "openai"
     return {
-        "provider": "openai",
-        "model": "gpt-4o-mini",
+        "provider": provider,
+        "model": provider_models[provider],
         "chunk_size": 4000,
         "chunk_overlap": 200,
         "temperature": 0.7,

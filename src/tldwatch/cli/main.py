@@ -8,7 +8,6 @@ from rich.console import Console
 
 from ..core.config import Config
 from ..core.summarizer import Summarizer, SummarizerError
-from ..utils.url_parser import extract_video_id, is_youtube_url
 
 # Initialize rich console for pretty output
 console = Console()
@@ -66,32 +65,6 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     return parser
-
-
-def get_input_source(args: argparse.Namespace) -> str:
-    """Determine and validate the input source"""
-    if args.video_id:
-        return args.video_id
-    elif args.url:
-        if not is_youtube_url(args.url):
-            console.print("[red]Error: Invalid YouTube URL[/red]")
-            sys.exit(1)
-        video_id = extract_video_id(args.url)
-        if not video_id:
-            console.print("[red]Error: Could not extract video ID from URL[/red]")
-            sys.exit(1)
-        return video_id
-    elif args.stdin:
-        # Read from stdin
-        if sys.stdin.isatty():
-            console.print("[red]Error: No input provided on stdin[/red]")
-            sys.exit(1)
-        content = sys.stdin.read().strip()
-        if is_youtube_url(content):
-            return extract_video_id(content) or ""
-        return content
-
-    return ""
 
 
 async def run_summarizer(
@@ -202,27 +175,60 @@ async def main() -> None:
     if not args.save_config and not (args.video_id or args.url or args.stdin):
         parser.error("one of the arguments --video-id url --stdin is required")
 
-    # Get input source
-    video_id = get_input_source(args)
+    # Initialize summarizer early for input validation
+    config = Config.load()
+    provider = args.provider or config.get("provider", "openai")
+    model = args.model or config.get("model")
+    chunk_size = args.chunk_size or config.get("chunk_size", 4000)
+    temperature = args.temperature or config.get("temperature", 0.7)
 
-    # Run summarizer
-    summarizer = await run_summarizer(
-        video_id,
-        provider=args.provider,
-        model=args.model,
-        chunk_size=args.chunk_size,
-        temperature=args.temperature,
+    summarizer = Summarizer(
+        provider=provider,
+        model=model,
+        temperature=temperature,
+        chunk_size=chunk_size,
         use_full_context=args.full_context,
+        youtube_api_key=os.environ.get("YOUTUBE_API_KEY"),
     )
 
-    if args.out:
-        await summarizer.export_summary(args.out)
-        console.print(f"[green]Summary saved to {args.out}[/green]")
-    else:
-        # Write to stdout
-        console.print(summarizer.summary)
-        console.print()  # Add a blank line for spacing
-    sys.exit(0)  # Explicitly exit after completion
+    try:
+        # Get stdin content if needed
+        stdin_content = None
+        if args.stdin:
+            if sys.stdin.isatty():
+                console.print("[red]Error: No input provided on stdin[/red]")
+                sys.exit(1)
+            stdin_content = sys.stdin.read().strip()
+
+        # Validate input using Summarizer's method
+        try:
+            video_id = summarizer.validate_input(
+                video_id=args.video_id, url=args.url, stdin_content=stdin_content
+            )
+        except SummarizerError as e:
+            console.print(f"[red]Error: {str(e)}[/red]")
+            sys.exit(1)
+
+        # Generate summary with progress indication
+        with console.status("Generating summary...", spinner="dots"):
+            try:
+                await summarizer.get_summary(video_id=video_id)
+            except SummarizerError as e:
+                console.print(f"[red]Error: {str(e)}[/red]")
+                sys.exit(1)
+
+        # Handle output
+        if args.out:
+            await summarizer.export_summary(args.out)
+            console.print(f"[green]Summary saved to {args.out}[/green]")
+        else:
+            console.print(summarizer.summary)
+            console.print()  # Add a blank line for spacing
+
+    finally:
+        await summarizer.close()
+
+    sys.exit(0)
 
 
 def cli_entry() -> None:

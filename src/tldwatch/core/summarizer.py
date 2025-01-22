@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import aiohttp
 from youtube_transcript_api import YouTubeTranscriptApi
 
-from ..utils.url_parser import extract_video_id
+from ..utils.url_parser import extract_video_id, is_youtube_url
 from .providers.anthropic import AnthropicProvider
 from .providers.base import ProviderError
 from .providers.cerebras import CerebrasProvider
@@ -67,6 +67,31 @@ class Summarizer:
         self.transcript: Optional[str] = None
         self.summary: Optional[str] = None
         self.metadata: Dict[str, Any] = {}
+
+    def validate_input(
+        self,
+        video_id: Optional[str] = None,
+        url: Optional[str] = None,
+        stdin_content: Optional[str] = None,
+    ) -> str:
+        """Validate and process input source to get video ID"""
+        if video_id:
+            return video_id
+        elif url:
+            if not is_youtube_url(url):
+                raise SummarizerError("Invalid YouTube URL")
+            video_id = extract_video_id(url)
+            if not video_id:
+                raise SummarizerError("Could not extract video ID from URL")
+            return video_id
+        elif stdin_content:
+            if is_youtube_url(stdin_content):
+                video_id = extract_video_id(stdin_content)
+                if not video_id:
+                    raise SummarizerError("Could not extract video ID from URL")
+                return video_id
+            return stdin_content
+        raise SummarizerError("No valid input source provided")
 
     async def get_summary(
         self,

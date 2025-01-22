@@ -15,26 +15,9 @@ YOUTUBE_DOMAINS = {
 
 def is_youtube_url(url: str) -> bool:
     """
-    Check if a URL is a valid YouTube URL.
-
-    Args:
-        url: URL to check
-
-    Returns:
-        True if URL is a valid YouTube URL, False otherwise
+    Check if a URL is a valid YouTube URL by attempting to extract a video ID.
     """
-    try:
-        parsed = urlparse(url)
-        return (
-            parsed.netloc in YOUTUBE_DOMAINS
-            and (
-                parsed.path == "/watch"  # Standard watch URLs
-                or "/watch/" in parsed.path  # Some mobile URLs
-                or parsed.netloc == "youtu.be"
-            )  # Short URLs
-        )
-    except Exception:
-        return False
+    return bool(extract_video_id(url))
 
 
 def extract_video_id(url: str) -> Optional[str]:

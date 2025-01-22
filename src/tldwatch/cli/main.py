@@ -34,7 +34,15 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--provider",
         type=str,
-        choices=["openai", "groq", "anthropic", "cerebras", "deepseek", "ollama"],
+        choices=[
+            "openai",
+            "groq",
+            "anthropic",
+            "google",
+            "cerebras",
+            "deepseek",
+            "ollama",
+        ],
         help="LLM provider to use (defaults to config)",
     )
     parser.add_argument(
@@ -131,6 +139,7 @@ def check_environment(args) -> None:
     """Check for required environment variables"""
     required_vars = {
         "openai": "OPENAI_API_KEY",
+        "google": "GEMINI_API_KEY",
         "anthropic": "ANTHROPIC_API_KEY",
         "groq": "GROQ_API_KEY",
         "cerebras": "CEREBRAS_API_KEY",

@@ -10,6 +10,7 @@ from .providers.anthropic import AnthropicProvider
 from .providers.base import ProviderError
 from .providers.cerebras import CerebrasProvider
 from .providers.deepseek import DeepSeekProvider
+from .providers.google import GoogleProvider
 from .providers.groq import GroqProvider
 from .providers.ollama import OllamaProvider
 from .providers.openai import OpenAIProvider
@@ -32,6 +33,7 @@ class Summarizer:
         "deepseek": DeepSeekProvider,
         "groq": GroqProvider,
         "cerebras": CerebrasProvider,
+        "google": GoogleProvider,
         "ollama": OllamaProvider,
     }
 

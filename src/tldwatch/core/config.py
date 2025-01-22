@@ -25,8 +25,11 @@ class Config:
     # Provider-specific default models
     PROVIDER_MODELS = {
         "openai": "gpt-4o-mini",
+        "anthropic": "claude-3-5-sonnet-20241022",
+        "deepseek": "deepseek-chat",
         "groq": "mixtral-8x7b-32768",
         "cerebras": "llama3.1-8b",
+        "google": "gemini-1.5-flash",
         "ollama": "llama3.1:8b",
     }
 

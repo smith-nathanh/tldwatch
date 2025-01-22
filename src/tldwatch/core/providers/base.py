@@ -48,6 +48,7 @@ class BaseProvider(ABC):
     # Class-level mapping of providers to env vars
     _ENV_VARS = {
         "openai": "OPENAI_API_KEY",
+        "google": "GEMINI_API_KEY",
         "groq": "GROQ_API_KEY",
         "cerebras": "CEREBRAS_API_KEY",
         "deepseek": "DEEPSEEK_API_KEY",

@@ -8,6 +8,7 @@ A Python library for generating summaries of YouTube video transcripts (or any t
 - Process other video transcripts text by passing them directly
 - Support for multiple AI providers:
   - OpenAI
+  - Google
   - Anthropic
   - Groq
   - Cerebras

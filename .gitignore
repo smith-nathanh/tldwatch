@@ -13,6 +13,5 @@ src/tldwatch/core/providers/openai_new.py
 plan.md
 tldwatch_examples/
 summary.json
-examples/post_summary.py
 schedule/
 summaries/

@@ -19,14 +19,14 @@ class GoogleProvider(BaseProvider):
     API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
     CONTEXT_WINDOWS = {
-        "gemini-2.0-flash-exp": {"input": 1048576, "output": 8192},
+        "gemini-2.0-flash": {"input": 1048576, "output": 8192},
         "gemini-1.5-flash": {"input": 1048576, "output": 8192},
         "gemini-1.5-flash-8b": {"input": 1048576, "output": 8192},
         "gemini-1.5-pro": {"input": 2097152, "output": 8192},
     }
 
     RATE_LIMITS = {
-        "gemini-2.0-flash-exp": {"free_rpm": 10, "paid_rpm": None, "tpm": 4000000},
+        "gemini-2.0-flash": {"free_rpm": 10, "paid_rpm": None, "tpm": 4000000},
         "gemini-1.5-flash": {"free_rpm": 15, "paid_rpm": 2000, "tpm": 4000000},
         "gemini-1.5-flash-8b": {"free_rpm": 15, "paid_rpm": 4000, "tpm": 4000000},
         "gemini-1.5-pro": {"free_rpm": 2, "paid_rpm": 1000, "tpm": 4000000},

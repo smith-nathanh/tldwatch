@@ -9,6 +9,7 @@ from tldwatch.core.providers.anthropic import AnthropicProvider
 from tldwatch.core.providers.base import BaseProvider
 from tldwatch.core.providers.cerebras import CerebrasProvider
 from tldwatch.core.providers.deepseek import DeepSeekProvider
+from tldwatch.core.providers.google import GoogleProvider
 from tldwatch.core.providers.groq import GroqProvider
 from tldwatch.core.providers.ollama import OllamaProvider
 from tldwatch.core.providers.openai import OpenAIProvider
@@ -21,6 +22,7 @@ PROVIDERS: Dict[str, Type[BaseProvider]] = {
     "cerebras": CerebrasProvider,
     "deepseek": DeepSeekProvider,
     "ollama": OllamaProvider,
+    "google": GoogleProvider,
 }
 
 
@@ -44,6 +46,7 @@ def mock_config(request):
         "groq": "mixtral-8x7b-32768",
         "cerebras": "llama3.1-8b",
         "ollama": "llama3.1:8b",
+        "google": "gemini-1.5-flash",
     }
 
     provider = request.param if hasattr(request, "param") else "openai"
@@ -124,6 +127,7 @@ def mock_successful_completion():
         "cerebras": "Summary",  # Cerebras returns generated text directly
         "deepseek": "Summary",  # DeepSeek provider extracts content
         "ollama": "Summary",  # Ollama returns response directly
+        "google": "Summary",
     }
 
 
@@ -143,6 +147,7 @@ def mock_auth_error():
             "error": {"code": "invalid_api_key", "message": "Invalid API key"}
         },
         "ollama": {"error": "Authentication error", "status_code": 401},
+        "google": {"error": {"code": "invalid_api_key", "message": "Invalid API key"}},
     }
 
 
@@ -164,6 +169,9 @@ def mock_rate_limit_error():
             "error": {"code": "rate_limit_exceeded", "message": "Rate limit exceeded"}
         },
         "ollama": {"error": "Too many requests", "status_code": 429},
+        "google": {
+            "error": {"code": "rate_limit_exceeded", "message": "Rate limit exceeded"}
+        },
     }
 
 
@@ -179,5 +187,6 @@ def mock_network_error():
             "cerebras",
             "deepseek",
             "ollama",
+            "google",
         ]
     }

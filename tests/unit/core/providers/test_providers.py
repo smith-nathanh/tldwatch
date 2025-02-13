@@ -30,6 +30,7 @@ class TestProviderInterface:
                 "groq": "gsk-",
                 "cerebras": "csk-",
                 "deepseek": "sk-",
+                "google": "AI",
             }
             assert provider_instance.api_key.startswith(
                 expected_prefixes[provider_name]

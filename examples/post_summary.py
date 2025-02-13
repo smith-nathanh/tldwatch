@@ -113,7 +113,7 @@ def create_thread_paragraphs(
             current_length = len(sentence)
 
     if current_paragraph:
-        paragraph_text = ". ".join(current_paragraph) + "."
+        paragraph_text = ". ".join(current_paragraph) + ".."
         if verbose:
             logging.info(f"Final paragraph length: {len(paragraph_text)}")
         paragraphs.append(paragraph_text)
@@ -188,7 +188,7 @@ async def main():
     )
     parser.add_argument(
         "--chunk_size",
-        default=4000,
+        default=5000,
         type=int,
         help="The maximum number of tokens to send to the model at once",
     )

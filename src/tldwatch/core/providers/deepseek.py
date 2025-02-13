@@ -16,7 +16,7 @@ from .base import (
 class DeepSeekProvider(BaseProvider):
     """DeepSeek API provider implementation"""
 
-    API_BASE = "https://api.deepseek.com/v1"
+    API_BASE = "https://api.deepseek.com"
 
     CONTEXT_WINDOWS = {
         "deepseek-chat": 65536,  # 64K context window
@@ -160,6 +160,9 @@ class DeepSeekProvider(BaseProvider):
 
                         elif response.status != 200:
                             error_text = await response.text()
+                            print(f"Status: {response.status}")
+                            print(f"Headers: {response.headers}")
+                            print(f"Error Response: {error_text}")
                             raise ProviderError(
                                 f"API error (status {response.status}): {error_text}"
                             )

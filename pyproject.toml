@@ -46,6 +46,15 @@ asyncio_default_fixture_loop_scope = "function"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[dependency-groups]
+dev = [
+    "click>=8.1.8",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.2",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+]
+
 # Package discovery
 [tool.hatch.build.targets.wheel]
 packages = ["src/tldwatch"]

@@ -82,6 +82,7 @@ def mock_env_vars():
             "GROQ_API_KEY": "gsk-test-key",
             "CEREBRAS_API_KEY": "csk-test-key",
             "DEEPSEEK_API_KEY": "sk-test-key",
+            "GEMINI_API_KEY": "AIzaSyTest-key",
             "YOUTUBE_API_KEY": "yt-test-key",
         },
     ):

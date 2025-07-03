@@ -3,6 +3,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
@@ -12,6 +13,8 @@ from tldwatch.core.summarizer import Summarizer
 # Test video ID that's unlikely to be taken down (e.g. a popular educational video)
 TEST_VIDEO_ID = "jNQXAC9IVRw"  # "Me at the zoo" - First YouTube video
 TEST_VIDEO_URL = f"https://www.youtube.com/watch?v={TEST_VIDEO_ID}"
+
+print(f"[DEBUG] OPENAI_API_KEY in test: {os.environ.get('OPENAI_API_KEY')}")
 
 
 def has_api_key(provider: str) -> bool:
@@ -53,6 +56,20 @@ async def summarizer():
     )
     yield summarizer
     await summarizer.close()
+
+
+@pytest.fixture(autouse=True)
+def mock_youtube_transcript_api():
+    """Automatically mock YouTubeTranscriptApi.get_transcript for all tests."""
+    fake_transcript = [
+        {"text": "This is a mocked transcript paragraph for testing."},
+        {"text": "It simulates a real YouTube transcript."},
+    ]
+    with patch(
+        "youtube_transcript_api.YouTubeTranscriptApi.get_transcript",
+        return_value=fake_transcript,
+    ):
+        yield
 
 
 @pytest.mark.asyncio

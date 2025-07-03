@@ -12,9 +12,10 @@ dependencies = [
     "argparse>=1.4.0",
     "asyncio>=3.4.3",
     "backoff>=2.2.1",
+    "pyyaml>=6.0",
     "rich>=13.9.4",
     "tiktoken>=0.8.0",
-    "youtube-transcript-api>=0.6.3",
+    "youtube-transcript-api>=1.1.1",
 ]
 
 # Add CLI entry point

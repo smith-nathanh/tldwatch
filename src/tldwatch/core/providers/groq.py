@@ -13,6 +13,7 @@ from .base import (
     RateLimitConfig,
     RateLimitError,
 )
+from .config_loader import get_context_windows, get_default_model, get_rate_limits
 
 logger = logging.getLogger(__name__)
 
@@ -29,27 +30,23 @@ class GroqProvider(BaseProvider):
         total=30, connect=5, sock_connect=5, sock_read=25
     )
 
-    # Model context windows and TPM limits
-    MODEL_CONFIGS = {
-        "mixtral-8x7b-32768": {"context_window": 32768, "tpm": 5000},
-        "llama-3.3-70b-versatile": {"context_window": 128000, "tpm": 6000},
-        "llama-3.1-8b-instant": {"context_window": 128000, "tpm": 20000},
-        "llama-guard-3-8b": {"context_window": 8192, "tpm": 15000},
-        "llama3-70b-8192": {"context_window": 8192, "tpm": 6000},
-        "llama3-8b-8192": {"context_window": 8192, "tpm": 30000},
-        "gemma2-9b-it": {"context_window": 8192, "tpm": 14400},
-    }
-
     def __init__(
         self,
-        model: str = "mixtral-8x7b-32768",
+        model: Optional[str] = None,
         temperature: float = 0.7,
         rate_limit_config: Optional[RateLimitConfig] = None,
         use_full_context: bool = False,
     ):
-        if model not in self.MODEL_CONFIGS:
+        # Use config file for default model if not specified
+        if model is None:
+            model = get_default_model("groq")
+
+        # Get context windows from config
+        context_windows = get_context_windows("groq")
+
+        if model not in context_windows:
             raise ValueError(
-                f"Invalid model. Choose from: {', '.join(self.MODEL_CONFIGS.keys())}"
+                f"Invalid model. Choose from: {', '.join(context_windows.keys())}"
             )
 
         super().__init__(
@@ -73,11 +70,14 @@ class GroqProvider(BaseProvider):
 
     def _default_rate_limit_config(self) -> RateLimitConfig:
         """Default rate limits for Groq based on their documentation"""
+        rate_limits = get_rate_limits("groq")
+        tpm = 0
+        if rate_limits and self.model in rate_limits:
+            tpm = rate_limits[self.model].get("tpm", 0)
+
         return RateLimitConfig(
             requests_per_minute=30,  # From documentation
-            tokens_per_minute=self.MODEL_CONFIGS[self.model][
-                "tpm"
-            ],  # Model-specific TPM
+            tokens_per_minute=tpm,  # Model-specific TPM
             max_retries=5,
             retry_delay=2.0,
             timeout=120.0,
@@ -91,7 +91,8 @@ class GroqProvider(BaseProvider):
     @property
     def context_window(self) -> int:
         """Return the context window size for the current model"""
-        return self.MODEL_CONFIGS[self.model]["context_window"]
+        context_windows = get_context_windows("groq")
+        return context_windows[self.model]
 
     def count_tokens(self, text: str) -> int:
         """Approximate token counting for LLaMA-based models"""

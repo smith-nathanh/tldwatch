@@ -11,6 +11,7 @@ from .base import (
     RateLimitConfig,
     RateLimitError,
 )
+from .config_loader import get_context_windows, get_default_model
 
 
 class DeepSeekProvider(BaseProvider):
@@ -18,20 +19,23 @@ class DeepSeekProvider(BaseProvider):
 
     API_BASE = "https://api.deepseek.com"
 
-    CONTEXT_WINDOWS = {
-        "deepseek-chat": 65536,  # 64K context window
-    }
-
     def __init__(
         self,
-        model: str = "deepseek-chat",
+        model: Optional[str] = None,
         temperature: float = 0.7,
         rate_limit_config: Optional[RateLimitConfig] = None,
         use_full_context: bool = False,
     ):
-        if model not in self.CONTEXT_WINDOWS:
+        # Use config file for default model if not specified
+        if model is None:
+            model = get_default_model("deepseek")
+
+        # Get context windows from config
+        context_windows = get_context_windows("deepseek")
+
+        if model not in context_windows:
             raise ValueError(
-                f"Invalid model. Choose from: {', '.join(self.CONTEXT_WINDOWS.keys())}"
+                f"Invalid model. Choose from: {', '.join(context_windows.keys())}"
             )
 
         super().__init__(
@@ -68,7 +72,8 @@ class DeepSeekProvider(BaseProvider):
     @property
     def context_window(self) -> int:
         """Return the context window size for the current model"""
-        return self.CONTEXT_WINDOWS.get(self.model, 65536)
+        context_windows = get_context_windows("deepseek")
+        return context_windows.get(self.model, 65536)
 
     def count_tokens(self, text: str) -> int:
         """Approximate token counting for LLaMA-based models"""

@@ -11,6 +11,7 @@ from .base import (
     RateLimitConfig,
     RateLimitError,
 )
+from .config_loader import get_context_windows, get_default_model
 
 
 class CerebrasProvider(BaseProvider):
@@ -18,19 +19,23 @@ class CerebrasProvider(BaseProvider):
 
     API_BASE = "https://api.cerebras.ai/v1"
 
-    # Available models and their context windows
-    CONTEXT_WINDOWS = {"llama3.1-8b": 8192, "llama3.1-70b": 8192, "llama-3.3-70b": 8192}
-
     def __init__(
         self,
-        model: str = "llama3.1-70b",
+        model: Optional[str] = None,
         temperature: float = 0.7,
         rate_limit_config: Optional[RateLimitConfig] = None,
         use_full_context: bool = False,
     ):
-        if model not in self.CONTEXT_WINDOWS:
+        # Use config file for default model if not specified
+        if model is None:
+            model = get_default_model("cerebras")
+
+        # Get context windows from config
+        context_windows = get_context_windows("cerebras")
+
+        if model not in context_windows:
             raise ValueError(
-                f"Invalid model. Choose from: {', '.join(self.CONTEXT_WINDOWS.keys())}"
+                f"Invalid model. Choose from: {', '.join(context_windows.keys())}"
             )
 
         super().__init__(
@@ -67,7 +72,8 @@ class CerebrasProvider(BaseProvider):
     @property
     def context_window(self) -> int:
         """Return the context window size for the current model"""
-        return self.CONTEXT_WINDOWS[self.model]
+        context_windows = get_context_windows("cerebras")
+        return context_windows[self.model]
 
     def count_tokens(self, text: str) -> int:
         """Approximate token counting for LLaMA-based models"""

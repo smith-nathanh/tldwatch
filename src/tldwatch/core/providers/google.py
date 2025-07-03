@@ -11,6 +11,7 @@ from .base import (
     RateLimitConfig,
     RateLimitError,
 )
+from .config_loader import get_context_windows, get_default_model, get_rate_limits
 
 
 class GoogleProvider(BaseProvider):
@@ -18,30 +19,23 @@ class GoogleProvider(BaseProvider):
 
     API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
-    CONTEXT_WINDOWS = {
-        "gemini-2.0-flash": {"input": 1048576, "output": 8192},
-        "gemini-1.5-flash": {"input": 1048576, "output": 8192},
-        "gemini-1.5-flash-8b": {"input": 1048576, "output": 8192},
-        "gemini-1.5-pro": {"input": 2097152, "output": 8192},
-    }
-
-    RATE_LIMITS = {
-        "gemini-2.0-flash": {"free_rpm": 10, "paid_rpm": None, "tpm": 4000000},
-        "gemini-1.5-flash": {"free_rpm": 15, "paid_rpm": 2000, "tpm": 4000000},
-        "gemini-1.5-flash-8b": {"free_rpm": 15, "paid_rpm": 4000, "tpm": 4000000},
-        "gemini-1.5-pro": {"free_rpm": 2, "paid_rpm": 1000, "tpm": 4000000},
-    }
-
     def __init__(
         self,
-        model: str = "gemini-1.5-flash",
+        model: Optional[str] = None,
         temperature: float = 0.7,
         rate_limit_config: Optional[RateLimitConfig] = None,
         use_full_context: bool = False,
     ):
-        if model not in self.CONTEXT_WINDOWS:
+        # Use config file for default model if not specified
+        if model is None:
+            model = get_default_model("google")
+
+        # Get context windows from config
+        context_windows = get_context_windows("google")
+
+        if model not in context_windows:
             raise ValueError(
-                f"Invalid model. Choose from: {', '.join(self.CONTEXT_WINDOWS.keys())}"
+                f"Invalid model. Choose from: {', '.join(context_windows.keys())}"
             )
 
         super().__init__(
@@ -61,15 +55,17 @@ class GoogleProvider(BaseProvider):
 
     def _default_rate_limit_config(self) -> RateLimitConfig:
         """Default rate limits based on the selected model"""
-        model_limits = self.RATE_LIMITS[self.model]
-        return RateLimitConfig(
-            requests_per_minute=model_limits["free_rpm"]
-            // 2,  # Half of free tier limit
-            tokens_per_minute=model_limits["tpm"],
-            max_retries=3,
-            retry_delay=5.0,  # 5 seconds between retries
-            timeout=60.0,
-        )
+        rate_limits = get_rate_limits("google")
+        if rate_limits and self.model in rate_limits:
+            model_limits = rate_limits[self.model]
+            return RateLimitConfig(
+                requests_per_minute=model_limits["free_rpm"]
+                // 2,  # Half of free tier limit
+                tokens_per_minute=model_limits["tpm"],
+                max_retries=3,
+                retry_delay=5.0,  # 5 seconds between retries
+                timeout=60.0,
+            )
 
     @property
     def max_concurrent_requests(self) -> int:
@@ -80,7 +76,8 @@ class GoogleProvider(BaseProvider):
     @property
     def context_window(self) -> int:
         """Return input context window size for the current model"""
-        return self.CONTEXT_WINDOWS[self.model]["input"]
+        context_windows = get_context_windows("google")
+        return context_windows[self.model]["input"]
 
     def count_tokens(self, text: str) -> int:
         """More accurate token count approximation for Gemini models"""
@@ -125,9 +122,9 @@ class GoogleProvider(BaseProvider):
                             "temperature": self.temperature,
                             "candidateCount": 1,
                             "stopSequences": [],
-                            "maxOutputTokens": self.CONTEXT_WINDOWS[self.model][
-                                "output"
-                            ],
+                            "maxOutputTokens": get_context_windows("google")[
+                                self.model
+                            ]["output"],
                         },
                     }
 

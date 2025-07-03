@@ -11,6 +11,7 @@ from .base import (
     RateLimitConfig,
     RateLimitError,
 )
+from .config_loader import get_context_windows, get_default_model
 
 
 class OpenAIProvider(BaseProvider):
@@ -18,18 +19,17 @@ class OpenAIProvider(BaseProvider):
 
     API_BASE = "https://api.openai.com/v1"
 
-    CONTEXT_WINDOWS = {
-        "gpt-4o": 128000,
-        "gpt-4o-mini": 128000,
-    }
-
     def __init__(
         self,
-        model: str = "gpt-4o-mini",
+        model: Optional[str] = None,
         temperature: float = 0.7,
         rate_limit_config: Optional[RateLimitConfig] = None,
         use_full_context: bool = False,
     ):
+        # Use config file for default model if not specified
+        if model is None:
+            model = get_default_model("openai")
+
         super().__init__(
             model=model,
             temperature=temperature,
@@ -72,7 +72,8 @@ class OpenAIProvider(BaseProvider):
     @property
     def context_window(self) -> int:
         """Return the context window size for the current model"""
-        return self.CONTEXT_WINDOWS.get(self.model, 8192)
+        context_windows = get_context_windows("openai")
+        return context_windows.get(self.model, 8192)
 
     async def generate_summary(self, text: str) -> str:
         """Generate a summary using OpenAI's chat completion API"""

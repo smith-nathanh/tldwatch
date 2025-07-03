@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from .base import BaseProvider, ProviderError, RateLimitConfig
+from .config_loader import get_context_windows, get_default_model
 
 
 class OllamaConnectionError(ProviderError):
@@ -26,20 +27,17 @@ class OllamaProvider(BaseProvider):
 
     API_BASE = "http://localhost:11434/api"
 
-    # Default context windows for common models
-    CONTEXT_WINDOWS = {
-        "llama3.1:8b": 128000,
-        "llama3.3:70b": 8192,  # need to verify
-        "phi4:14b": 8192,
-    }
-
     def __init__(
         self,
-        model: str = "llama3.1:8b",
+        model: Optional[str] = None,
         temperature: float = 0.7,
         rate_limit_config: Optional[RateLimitConfig] = None,
         use_full_context: bool = False,
     ):
+        # Use config file for default model if not specified
+        if model is None:
+            model = get_default_model("ollama")
+
         # Initialize session with optimized pooling
         self._session = requests.Session()
 
@@ -149,8 +147,9 @@ class OllamaProvider(BaseProvider):
     def context_window(self) -> int:
         """Return the context window size for the current model"""
         base_model = self.model.split(":")[0].lower()
+        context_windows = get_context_windows("ollama")
 
-        for model_prefix, window in self.CONTEXT_WINDOWS.items():
+        for model_prefix, window in context_windows.items():
             if base_model.startswith(model_prefix):
                 return window
         return 2048  # Conservative default for unknown models

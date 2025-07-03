@@ -347,7 +347,23 @@ class Summarizer:
             logger.debug(f"Processed transcript length: {len(self.transcript)} chars")
         except Exception as e:
             logger.error(f"Error fetching transcript: {str(e)}")
-            raise SummarizerError(f"Error fetching transcript: {str(e)}")
+
+            # Provide more specific error messages
+            error_msg = str(e).lower()
+            if "no element found" in error_msg or "xml" in error_msg:
+                raise SummarizerError(
+                    f"Failed to fetch transcript for video {self.video_id}. "
+                    "This may be due to: 1) The video has no transcripts available, "
+                    "2) The video is private/restricted, 3) Invalid video ID, "
+                    "4) YouTube API issues. Please verify the video ID and try again."
+                )
+            elif "could not retrieve" in error_msg or "transcript" in error_msg:
+                raise SummarizerError(
+                    f"Transcript not available for video {self.video_id}. "
+                    "The video may not have subtitles or may be private/restricted."
+                )
+            else:
+                raise SummarizerError(f"Error fetching transcript: {str(e)}")
 
     async def _retry_with_backoff(self, coro, max_retries: int, *args, **kwargs):
         base_delay = 1.0

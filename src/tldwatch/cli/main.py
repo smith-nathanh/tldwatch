@@ -2,7 +2,7 @@ import argparse
 import asyncio
 import os
 import sys
-from typing import Optional, Tuple
+from typing import Optional
 
 from rich.console import Console
 
@@ -82,7 +82,7 @@ async def run_summarizer(
     chunk_size: Optional[int] = None,
     temperature: Optional[float] = None,
     use_full_context: bool = False,
-) -> Tuple[str, Optional[Summarizer]]:
+) -> Summarizer:
     """Run the summarizer with progress indication"""
     config = Config.load()
 

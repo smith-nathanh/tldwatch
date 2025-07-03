@@ -11,6 +11,7 @@ from .base import (
     RateLimitConfig,
     RateLimitError,
 )
+from .config_loader import get_context_windows, get_default_model
 
 
 class AnthropicProvider(BaseProvider):
@@ -18,26 +19,23 @@ class AnthropicProvider(BaseProvider):
 
     API_BASE = "https://api.anthropic.com/v1"
 
-    # Available models and their context windows
-    CONTEXT_WINDOWS = {
-        "claude-3-5-sonnet-20241022": 200000,
-        "claude-3-5-sonnet-20240620": 200000,
-        "claude-3-5-haiku": 200000,
-        "claude-3-opus": 200000,
-        "claude-3-sonnet": 200000,
-        "claude-3-haiku": 200000,
-    }
-
     def __init__(
         self,
-        model: str = "claude-3-5-sonnet-20241022",
+        model: Optional[str] = None,
         temperature: float = 0.7,
         rate_limit_config: Optional[RateLimitConfig] = None,
         use_full_context: bool = False,
     ):
-        if model not in self.CONTEXT_WINDOWS:
+        # Use config file for default model if not specified
+        if model is None:
+            model = get_default_model("anthropic")
+
+        # Get context windows from config
+        context_windows = get_context_windows("anthropic")
+
+        if model not in context_windows:
             raise ValueError(
-                f"Invalid model. Choose from: {', '.join(self.CONTEXT_WINDOWS.keys())}"
+                f"Invalid model. Choose from: {', '.join(context_windows.keys())}"
             )
 
         super().__init__(
@@ -81,7 +79,8 @@ class AnthropicProvider(BaseProvider):
     @property
     def context_window(self) -> int:
         """Return the context window size for the current model"""
-        return self.CONTEXT_WINDOWS[self.model]
+        context_windows = get_context_windows("anthropic")
+        return context_windows[self.model]
 
     def count_tokens(self, text: str) -> int:
         """

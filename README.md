@@ -19,6 +19,7 @@ A Python library for generating summaries of YouTube video transcripts (or any t
 - Configurable chunking for long transcripts
 - Rate limiting and error handling
 - Export summaries to JSON with metadata
+- Proxy support to avoid IP blocking (Webshare integration)
 
 ## Installation
 
@@ -174,6 +175,49 @@ For long transcripts, tldwatch automatically handles chunking:
 1. If `use_full_context=True` and the transcript fits in the model's context window, it processes the entire transcript at once.
 2. Otherwise, it splits the transcript into chunks with overlap, summarizes each chunk, and then combines the summaries.
 
+## Proxy Configuration (Avoiding IP Blocking)
+
+YouTube may block IP addresses that make too many requests. Use proxy configuration to avoid this:
+
+### Webshare (Recommended)
+
+```bash
+# Set up Webshare credentials
+export WEBSHARE_PROXY_USERNAME="your_username"
+export WEBSHARE_PROXY_PASSWORD="your_password"
+
+# Use with CLI
+tldwatch "https://www.youtube.com/watch?v=QAgR4uQ15rc"
+```
+
+```python
+# Use with library
+from tldwatch import Summarizer, create_webshare_proxy
+
+proxy_config = create_webshare_proxy(
+    proxy_username="your_username",
+    proxy_password="your_password"
+)
+
+summarizer = Summarizer(proxy_config=proxy_config)
+summary = await summarizer.get_summary(video_id="QAgR4uQ15rc")
+```
+
+### Generic Proxies
+
+```python
+from tldwatch import create_generic_proxy
+
+proxy_config = create_generic_proxy(
+    http_url="http://user:pass@proxy.example.com:8080",
+    https_url="https://user:pass@proxy.example.com:8080"
+)
+
+summarizer = Summarizer(proxy_config=proxy_config)
+```
+
+For detailed proxy setup instructions, see [PROXY_SETUP.md](PROXY_SETUP.md).
+
 ## Error Handling
 
 ```python
@@ -186,6 +230,8 @@ except ValueError as e:
     print(f"Invalid input: {e}")
 except SummarizerError as e:
     print(f"Summarization error: {e}")
+    if "blocked" in str(e).lower():
+        print("Consider using proxy configuration")
 ```
 
 ## Development

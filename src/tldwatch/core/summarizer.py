@@ -14,6 +14,7 @@ from .providers.google import GoogleProvider
 from .providers.groq import GroqProvider
 from .providers.ollama import OllamaProvider
 from .providers.openai import OpenAIProvider
+from .proxy_config import TldwatchProxyConfig
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +47,14 @@ class Summarizer:
         chunk_overlap: int = 200,
         use_full_context: bool = False,
         youtube_api_key: Optional[str] = None,
+        proxy_config: Optional[TldwatchProxyConfig] = None,
     ):
         self.provider_name = provider.lower()
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.use_full_context = use_full_context
         self.youtube_api_key = youtube_api_key
+        self.proxy_config = proxy_config
         self._lock = asyncio.Lock()
         self._active_tasks: set[asyncio.Task] = set()
 
@@ -340,7 +343,15 @@ class Summarizer:
             raise SummarizerError("No video ID available to fetch transcript")
 
         try:
-            transcript_list = YouTubeTranscriptApi.get_transcript(self.video_id)
+            # Create YouTubeTranscriptApi instance with proxy configuration if available
+            if self.proxy_config and self.proxy_config.proxy_config:
+                logger.debug("Using proxy configuration for transcript fetching")
+                ytt_api = YouTubeTranscriptApi(proxy_config=self.proxy_config.proxy_config)
+                transcript_list = ytt_api.get_transcript(self.video_id)
+            else:
+                logger.debug("Using direct connection for transcript fetching")
+                transcript_list = YouTubeTranscriptApi.get_transcript(self.video_id)
+            
             logger.debug(f"Raw transcript retrieved: {len(transcript_list)} segments")
             self.transcript = " ".join(item["text"] for item in transcript_list)
             self.transcript = self._clean_transcript(self.transcript)
@@ -355,12 +366,20 @@ class Summarizer:
                     f"Failed to fetch transcript for video {self.video_id}. "
                     "This may be due to: 1) The video has no transcripts available, "
                     "2) The video is private/restricted, 3) Invalid video ID, "
-                    "4) YouTube API issues. Please verify the video ID and try again."
+                    "4) YouTube API issues, 5) IP blocking (consider using proxy configuration). "
+                    "Please verify the video ID and try again."
                 )
             elif "could not retrieve" in error_msg or "transcript" in error_msg:
                 raise SummarizerError(
                     f"Transcript not available for video {self.video_id}. "
-                    "The video may not have subtitles or may be private/restricted."
+                    "The video may not have subtitles, may be private/restricted, "
+                    "or your IP may be blocked (consider using proxy configuration)."
+                )
+            elif "blocked" in error_msg or "forbidden" in error_msg:
+                raise SummarizerError(
+                    f"Access blocked for video {self.video_id}. "
+                    "Your IP may be blocked by YouTube. Consider using proxy configuration "
+                    "with Webshare or another proxy provider."
                 )
             else:
                 raise SummarizerError(f"Error fetching transcript: {str(e)}")

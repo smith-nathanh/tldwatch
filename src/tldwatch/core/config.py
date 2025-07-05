@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from .proxy_config import TldwatchProxyConfig
+
 
 class ConfigError(Exception):
     """Base exception for configuration errors"""
@@ -20,6 +22,7 @@ class Config:
         "chunk_overlap": 200,
         "temperature": 0.7,
         "use_full_context": False,
+        "proxy": None,
     }
 
     # Provider-specific default models
@@ -147,6 +150,14 @@ class Config:
         return self._config.get(
             "model", self.PROVIDER_MODELS.get(self.current_provider)
         )
+
+    @property
+    def proxy_config(self) -> Optional[TldwatchProxyConfig]:
+        """Get proxy configuration"""
+        proxy_data = self._config.get("proxy")
+        if proxy_data:
+            return TldwatchProxyConfig.from_config_dict(proxy_data)
+        return None
 
     def validate_provider_config(self) -> bool:
         """

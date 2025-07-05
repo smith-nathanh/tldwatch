@@ -8,6 +8,7 @@ from rich.console import Console
 
 from ..core.config import Config
 from ..core.summarizer import Summarizer, SummarizerError
+from ..core.proxy_config import create_webshare_proxy, create_generic_proxy, ProxyConfigError
 
 # Initialize rich console for pretty output
 console = Console()
@@ -72,7 +73,63 @@ def create_parser() -> argparse.ArgumentParser:
         help="Print current configuration settings and config file location",
     )
 
+    # Proxy configuration
+    proxy_group = parser.add_argument_group("proxy options")
+    proxy_group.add_argument(
+        "--webshare-username",
+        type=str,
+        help="Webshare proxy username (can also use WEBSHARE_PROXY_USERNAME env var)",
+    )
+    proxy_group.add_argument(
+        "--webshare-password",
+        type=str,
+        help="Webshare proxy password (can also use WEBSHARE_PROXY_PASSWORD env var)",
+    )
+    proxy_group.add_argument(
+        "--http-proxy",
+        type=str,
+        help="HTTP proxy URL (e.g., http://user:pass@proxy.example.com:8080)",
+    )
+    proxy_group.add_argument(
+        "--https-proxy",
+        type=str,
+        help="HTTPS proxy URL (e.g., https://user:pass@proxy.example.com:8080)",
+    )
+
     return parser
+
+
+def create_proxy_config(args: argparse.Namespace):
+    """Create proxy configuration from CLI arguments"""
+    # Check for Webshare configuration
+    webshare_username = args.webshare_username or os.environ.get("WEBSHARE_PROXY_USERNAME")
+    webshare_password = args.webshare_password or os.environ.get("WEBSHARE_PROXY_PASSWORD")
+    
+    if webshare_username and webshare_password:
+        try:
+            return create_webshare_proxy(
+                proxy_username=webshare_username,
+                proxy_password=webshare_password
+            )
+        except ProxyConfigError as e:
+            console.print(f"[red]Webshare proxy configuration error: {str(e)}[/red]")
+            return None
+    
+    # Check for generic proxy configuration
+    http_proxy = args.http_proxy or os.environ.get("HTTP_PROXY_URL")
+    https_proxy = args.https_proxy or os.environ.get("HTTPS_PROXY_URL")
+    
+    if http_proxy or https_proxy:
+        try:
+            return create_generic_proxy(
+                http_url=http_proxy,
+                https_url=https_proxy
+            )
+        except ProxyConfigError as e:
+            console.print(f"[red]Generic proxy configuration error: {str(e)}[/red]")
+            return None
+    
+    return None
 
 
 async def run_summarizer(
@@ -191,6 +248,11 @@ async def main() -> None:
     chunk_size = args.chunk_size or config.get("chunk_size", 4000)
     temperature = args.temperature or config.get("temperature", 0.7)
 
+    # Create proxy configuration
+    proxy_config = create_proxy_config(args) or config.proxy_config
+    if proxy_config:
+        console.print(f"[green]Using proxy configuration: {proxy_config}[/green]")
+
     summarizer = Summarizer(
         provider=provider,
         model=model,
@@ -198,6 +260,7 @@ async def main() -> None:
         chunk_size=chunk_size,
         use_full_context=args.full_context,
         youtube_api_key=os.environ.get("YOUTUBE_API_KEY"),
+        proxy_config=proxy_config,
     )
 
     try:

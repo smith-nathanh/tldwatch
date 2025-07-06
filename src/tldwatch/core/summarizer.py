@@ -1,531 +1,210 @@
-import asyncio
-import logging
-from typing import Any, Dict, List, Optional, Tuple
+"""
+Main summarizer that uses the unified provider system.
+Provides a clean, simple interface for YouTube video summarization.
+"""
 
-import aiohttp
+import logging
+import re
+from typing import Optional, Union
+
 from youtube_transcript_api import YouTubeTranscriptApi
 
 from ..utils.url_parser import extract_video_id, is_youtube_url
-from .providers.anthropic import AnthropicProvider
-from .providers.base import ProviderError
-from .providers.cerebras import CerebrasProvider
-from .providers.deepseek import DeepSeekProvider
-from .providers.google import GoogleProvider
-from .providers.groq import GroqProvider
-from .providers.ollama import OllamaProvider
-from .providers.openai import OpenAIProvider
-from .proxy_config import TldwatchProxyConfig
+from .providers.unified_provider import ChunkingStrategy, UnifiedProvider
+from .user_config import get_user_config
 
 logger = logging.getLogger(__name__)
 
 
-class SummarizerError(Exception):
-    """Base exception for Summarizer errors"""
-
-    pass
-
-
 class Summarizer:
-    """Main class for generating summaries from YouTube video transcripts or direct text input"""
-
-    PROVIDERS = {
-        "openai": OpenAIProvider,
-        "anthropic": AnthropicProvider,
-        "deepseek": DeepSeekProvider,
-        "groq": GroqProvider,
-        "cerebras": CerebrasProvider,
-        "google": GoogleProvider,
-        "ollama": OllamaProvider,
-    }
-
-    def __init__(
+    """
+    Main summarizer with a clean interface.
+    
+    Usage:
+        summarizer = Summarizer()
+        summary = await summarizer.summarize("https://youtube.com/watch?v=...")
+        
+        # Or with options:
+        summary = await summarizer.summarize(
+            "video_id", 
+            provider="anthropic",
+            model="claude-3-5-sonnet-20241022",
+            chunking_strategy="large"
+        )
+    """
+    
+    def __init__(self):
+        """Initialize the summarizer"""
+        pass
+    
+    async def summarize(
         self,
-        provider: str = "openai",
+        video_input: str,
+        provider: Optional[str] = None,
         model: Optional[str] = None,
-        temperature: float = 0.7,
-        chunk_size: int = 4000,
-        chunk_overlap: int = 200,
-        use_full_context: bool = False,
-        youtube_api_key: Optional[str] = None,
-        proxy_config: Optional[TldwatchProxyConfig] = None,
-    ):
-        self.provider_name = provider.lower()
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
-        self.use_full_context = use_full_context
-        self.youtube_api_key = youtube_api_key
-        self.proxy_config = proxy_config
-        self._lock = asyncio.Lock()
-        self._active_tasks: set[asyncio.Task] = set()
-
-        # Initialize provider
-        provider_class = self.PROVIDERS.get(self.provider_name)
-        if not provider_class:
-            raise ValueError(f"Unsupported provider: {provider}")
-
-        self.provider = provider_class(
-            model=model, temperature=temperature, use_full_context=use_full_context
-        )
-
-        # State variables
-        self.video_id: Optional[str] = None
-        self.transcript: Optional[str] = None
-        self.summary: Optional[str] = None
-        self.metadata: Dict[str, Any] = {}
-
-    def validate_input(
-        self,
-        video_id: Optional[str] = None,
-        url: Optional[str] = None,
-        stdin_content: Optional[str] = None,
+        chunking_strategy: Optional[Union[str, ChunkingStrategy]] = None,
+        temperature: Optional[float] = None
     ) -> str:
-        """Validate and process input source to get video ID"""
-        if video_id:
-            return video_id
-        elif url:
-            if not is_youtube_url(url):
-                raise SummarizerError("Invalid YouTube URL")
-            video_id = extract_video_id(url)
-            if not video_id:
-                raise SummarizerError("Could not extract video ID from URL")
-            return video_id
-        elif stdin_content:
-            if is_youtube_url(stdin_content):
-                video_id = extract_video_id(stdin_content)
-                if not video_id:
-                    raise SummarizerError("Could not extract video ID from URL")
-                return video_id
-            return stdin_content
-        raise SummarizerError("No valid input source provided")
-
-    async def get_summary(
-        self,
-        video_id: Optional[str] = None,
-        url: Optional[str] = None,
-        transcript_text: Optional[str] = None,
-    ) -> str:
-        """Generate a summary from either a YouTube video or direct transcript input"""
-        try:
-            if transcript_text is not None:
-                logging.info("Using direct transcript input")
-                self.transcript = self._clean_transcript(transcript_text)
-                self.video_id = None
-                return await self._generate_summary()
-
-            if url:
-                video_id = extract_video_id(url)
-                if not video_id:
-                    raise ValueError("Invalid YouTube URL")
-
-            if not video_id:
-                raise ValueError(
-                    "Must provide either video_id, valid YouTube URL, or transcript_text"
-                )
-
-            self.video_id = video_id
-            await self._fetch_transcript()
-
-            if self.youtube_api_key:
-                await self._fetch_youtube_metadata()
-
-            return await self._generate_summary()
-        except Exception as e:
-            logger.error(f"Error in get_summary: {str(e)}")
-            raise
-        finally:
-            await self.close()
-
-    async def _generate_summary(self) -> str:
-        """Generate summary using either full context or chunked approach"""
-        if not self.transcript.strip():
-            raise SummarizerError("No transcript available to summarize")
-
-        # Count tokens in transcript
-        transcript_tokens = self.provider.count_tokens(self.transcript)
-
-        # Leave room for prompt and response within context window
-        # Use 90% of context window to leave room for prompt and response
-        max_input_tokens = int(self.provider.context_window * 0.9)
-
-        if self.use_full_context and transcript_tokens <= max_input_tokens:
-            logger.info(
-                f"Using full context for summary (transcript: {transcript_tokens} tokens)"
-            )
-            self.summary = await self._generate_full_summary()
-        else:
-            if self.use_full_context:
-                logger.info(
-                    f"Transcript too long for full context ({transcript_tokens} tokens > {max_input_tokens} tokens), "
-                    "falling back to chunked approach"
-                )
-            else:
-                logger.info("Using chunked approach for summary")
-            self.summary = await self._generate_chunked_summary()
-
-        return self.summary
-
-    async def _generate_chunked_summary(self) -> str:
-        """Generate summary using chunked processing with improved error handling"""
-        chunks = self._split_into_chunks(
-            self.transcript, self.chunk_size, self.chunk_overlap
-        )
-        logger.info(f"Split transcript into {len(chunks)} chunks")
-
-        # Use provider's rate limits to determine concurrent requests
-        max_concurrent = min(
-            self.provider.max_concurrent_requests,
-            self.provider.rate_limit_config.requests_per_minute // 2,
-        )
-        semaphore = asyncio.Semaphore(max_concurrent)
-        chunk_results: List[Tuple[int, str]] = []
-
-        async def process_chunk(chunk: str, index: int) -> Tuple[int, str]:
-            """Process a single chunk with improved error handling"""
-            async with semaphore:
-                try:
-                    # Add jitter to prevent thundering herd
-                    jitter = (hash(str(index)) % 1000) / 1000.0
-                    await asyncio.sleep(jitter)
-
-                    for attempt in range(self.provider.rate_limit_config.max_retries):
-                        try:
-                            logger.debug(
-                                f"Processing chunk {index + 1}, attempt {attempt + 1}"
-                            )
-                            prompt = self._create_chunk_prompt(chunk)
-                            result = await self.provider.generate_summary(prompt)
-                            logger.debug(f"Completed chunk {index + 1}")
-                            return (index, result)
-                        except Exception as e:
-                            if (
-                                attempt
-                                < self.provider.rate_limit_config.max_retries - 1
-                            ):
-                                delay = self.provider.rate_limit_config.retry_delay * (
-                                    2**attempt
-                                )
-                                await asyncio.sleep(delay + jitter)
-                                logger.warning(
-                                    f"Retry {attempt + 1} for chunk {index + 1}: {str(e)}"
-                                )
-                            else:
-                                raise
-                except Exception as e:
-                    logger.error(
-                        f"Failed to process chunk {index + 1} after all retries: {str(e)}"
-                    )
-                    return (index, f"[Error processing chunk {index + 1}]")
-
-        # Create and track tasks
-        tasks = []
-        async with self._lock:
-            for i, chunk in enumerate(chunks):
-                task = asyncio.create_task(process_chunk(chunk, i))
-                self._active_tasks.add(task)
-                task.add_done_callback(self._active_tasks.discard)
-                tasks.append(task)
-
-        # Gather results with timeout
-        try:
-            # Set a reasonable timeout based on chunk count
-            timeout = 60 + (len(chunks) * 30)  # Base timeout + 30 seconds per chunk
-            results = await asyncio.wait_for(asyncio.gather(*tasks), timeout=timeout)
-            chunk_results.extend(results)
-        except asyncio.TimeoutError:
-            logger.error(f"Summary generation timed out after {timeout} seconds")
-            # Cancel any remaining tasks
-            for task in tasks:
-                if not task.done():
-                    task.cancel()
-            raise ProviderError("Summary generation timed out")
-        except Exception as e:
-            logger.error(f"Error during chunk processing: {str(e)}")
-            raise
-
-        # Sort results by original chunk order and filter out errors
-        chunk_results.sort(key=lambda x: x[0])
-        valid_summaries = [
-            result[1] for result in chunk_results if "[Error" not in result[1]
-        ]
-
-        if not valid_summaries:
-            raise ProviderError("All chunks failed to process")
-
-        if len(valid_summaries) == 1:
-            return valid_summaries[0]
-
-        if len(valid_summaries) < len(chunks):
-            logger.warning(
-                f"Completed with {len(chunks) - len(valid_summaries)} failed chunks"
-            )
-
-        # Generate final combined summary
-        logger.debug("Generating final combined summary")
-        combined_prompt = self._create_combine_prompt("\n\n".join(valid_summaries))
-        return await self.provider.generate_summary(combined_prompt)
-
-    def _split_into_chunks(self, text: str, chunk_size: int, overlap: int) -> List[str]:
-        """Split text into chunks with smart sentence boundary detection"""
-        if not text:
-            return []
-
-        # Common sentence endings including ellipsis
-        sentence_endings = ".!?..."
-        chunks = []
-        start = 0
-        text_length = len(text)
-
-        while start < text_length:
-            # Calculate the ideal end point
-            ideal_end = min(start + chunk_size, text_length)
-
-            # If we're not at the text end, look for a good breaking point
-            if ideal_end < text_length:
-                # First try to break at a sentence boundary within a window
-                window_size = min(200, chunk_size // 10)  # Look back up to 200 chars
-                window_start = max(ideal_end - window_size, start)
-
-                # Find the last sentence boundary in the window
-                found_boundary = False
-                for i in range(ideal_end, window_start - 1, -1):
-                    if i < text_length and text[i - 1] in sentence_endings:
-                        chunk = text[start:i].strip()
-                        if chunk:  # Ensure we don't add empty chunks
-                            chunks.append(chunk)
-                            logger.debug(
-                                f"Created chunk {len(chunks)}: {len(chunk)} chars"
-                            )
-                        start = max(i - overlap, 0)
-                        found_boundary = True
-                        break
-
-                # If no sentence boundary found, break at a space
-                if not found_boundary:
-                    window_text = text[window_start:ideal_end]
-                    last_space = window_text.rfind(" ")
-                    if last_space != -1:
-                        break_point = window_start + last_space
-                        chunk = text[start:break_point].strip()
-                        if chunk:
-                            chunks.append(chunk)
-                            logger.debug(
-                                f"Created chunk {len(chunks)}: {len(chunk)} chars"
-                            )
-                        start = max(break_point - overlap, 0)
-                    else:
-                        # If no space found, break at ideal_end
-                        chunk = text[start:ideal_end].strip()
-                        if chunk:
-                            chunks.append(chunk)
-                            logger.debug(
-                                f"Created chunk {len(chunks)}: {len(chunk)} chars"
-                            )
-                        start = max(ideal_end - overlap, 0)
-            else:
-                # Add the final chunk
-                final_chunk = text[start:].strip()
-                if final_chunk:
-                    chunks.append(final_chunk)
-                    logger.debug(f"Created final chunk: {len(final_chunk)} chars")
-                break
-
-        logger.info(f"Successfully created {len(chunks)} chunks")
-        return chunks
-
-    async def _generate_full_summary(self) -> str:
-        """Generate summary using the full text"""
-        prompt = self._create_summary_prompt(self.transcript)
-        return await self.provider.generate_summary(prompt)
-
-    async def _fetch_transcript(self) -> None:
-        """Fetch and process the video transcript"""
-        if not self.video_id:
-            raise SummarizerError("No video ID available to fetch transcript")
-
-        try:
-            # Create YouTubeTranscriptApi instance with proxy configuration if available
-            if self.proxy_config and self.proxy_config.proxy_config:
-                logger.debug("Using proxy configuration for transcript fetching")
-                ytt_api = YouTubeTranscriptApi(proxy_config=self.proxy_config.proxy_config)
-                transcript_list = ytt_api.get_transcript(self.video_id)
-            else:
-                logger.debug("Using direct connection for transcript fetching")
-                transcript_list = YouTubeTranscriptApi.get_transcript(self.video_id)
+        """
+        Summarize a YouTube video or direct text.
+        
+        Args:
+            video_input: YouTube URL, video ID, or direct text to summarize
+            provider: LLM provider to use (uses user default or "openai" if None)
+            model: Specific model to use (uses user/provider default if None)
+            chunking_strategy: How to handle long texts (uses user default or "standard" if None)
+            temperature: Generation temperature (uses user default or 0.7 if None)
             
-            logger.debug(f"Raw transcript retrieved: {len(transcript_list)} segments")
-            self.transcript = " ".join(item["text"] for item in transcript_list)
-            self.transcript = self._clean_transcript(self.transcript)
-            logger.debug(f"Processed transcript length: {len(self.transcript)} chars")
-        except Exception as e:
-            logger.error(f"Error fetching transcript: {str(e)}")
-
-            # Provide more specific error messages
-            error_msg = str(e).lower()
-            if "no element found" in error_msg or "xml" in error_msg:
-                raise SummarizerError(
-                    f"Failed to fetch transcript for video {self.video_id}. "
-                    "This may be due to: 1) The video has no transcripts available, "
-                    "2) The video is private/restricted, 3) Invalid video ID, "
-                    "4) YouTube API issues, 5) IP blocking (consider using proxy configuration). "
-                    "Please verify the video ID and try again."
-                )
-            elif "could not retrieve" in error_msg or "transcript" in error_msg:
-                raise SummarizerError(
-                    f"Transcript not available for video {self.video_id}. "
-                    "The video may not have subtitles, may be private/restricted, "
-                    "or your IP may be blocked (consider using proxy configuration)."
-                )
-            elif "blocked" in error_msg or "forbidden" in error_msg:
-                raise SummarizerError(
-                    f"Access blocked for video {self.video_id}. "
-                    "Your IP may be blocked by YouTube. Consider using proxy configuration "
-                    "with Webshare or another proxy provider."
-                )
-            else:
-                raise SummarizerError(f"Error fetching transcript: {str(e)}")
-
-    async def _retry_with_backoff(self, coro, max_retries: int, *args, **kwargs):
-        base_delay = 1.0
-        for attempt in range(max_retries):
-            try:
-                return await coro(*args, **kwargs)
-            except Exception as e:
-                if attempt < max_retries - 1:
-                    delay = base_delay * (2**attempt)
-                    jitter = (hash(str(args) + str(attempt)) % 1000) / 1000.0
-                    await asyncio.sleep(delay + jitter)
-                    logger.warning(f"Retry {attempt + 1} for {coro.__name__}: {str(e)}")
-                else:
-                    raise
-
-    async def _process_chunk_with_backoff(self, chunk: str, index: int) -> str:
-        return await self._retry_with_backoff(
-            self._process_chunk,
-            self.provider.rate_limit_config.max_retries,
-            chunk,
-            index,
+        Returns:
+            Generated summary as a string
+            
+        Raises:
+            ValueError: If input is invalid
+            Exception: If summarization fails
+        """
+        # Get transcript text
+        text = await self._get_text(video_input)
+        
+        # Initialize provider (will use user config for defaults)
+        unified_provider = UnifiedProvider(
+            provider=provider,
+            model=model,
+            temperature=temperature,
+            chunking_strategy=chunking_strategy
         )
-
-    async def _process_chunk(self, chunk: str, index: int) -> str:
-        logger.info(f"Processing chunk {index + 1}")
-        prompt = self._create_chunk_prompt(chunk)
-        summary = await self.provider.generate_summary(prompt)
-        logger.debug(f"Completed chunk {index + 1}")
+        
+        # Generate summary
+        logger.info(f"Generating summary using {unified_provider.config.name} ({unified_provider.model})")
+        logger.info(f"Text length: {len(text)} characters")
+        logger.info(f"Chunking strategy: {unified_provider.chunking_strategy.value}")
+        
+        summary = await unified_provider.generate_summary(text)
+        
+        logger.info(f"Summary generated successfully ({len(summary)} characters)")
         return summary
-
-    def _clean_transcript(self, text: str) -> str:
-        """Clean and normalize transcript text"""
-        # Remove special characters and normalize whitespace
-        text = text.replace("\n", " ")
-        return " ".join(text.split())
-
-    def _create_summary_prompt(self, text: str) -> str:
-        """Create prompt for full text summarization"""
-        return (
-            "Please provide a clear and concise summary of the following transcript. "
-            "Focus on the main points and key insights:\n\n"
-            f"{text}\n\n"
-            "Summary:"
-        )
-
-    def _create_chunk_prompt(self, chunk: str) -> str:
-        """Create prompt for chunk summarization"""
-        return (
-            "Please summarize this section of the transcript, "
-            "capturing the key points:\n\n"
-            f"{chunk}\n\n"
-            "Section Summary:"
-        )
-
-    def _create_combine_prompt(self, summaries: str) -> str:
-        """Create prompt for combining chunk summaries"""
-        return (
-            "Below are summaries of different sections. "
-            "Please combine them into a single, coherent summary that captures "
-            "the main points and flows naturally:\n\n"
-            f"{summaries}\n\n"
-            "Combined Summary:"
-        )
-
-    async def close(self):
-        """Cleanup resources and active tasks"""
-        async with self._lock:
-            for task in self._active_tasks:
-                if not task.done():
-                    task.cancel()
-            await asyncio.gather(*self._active_tasks, return_exceptions=True)
-
-        if hasattr(self.provider, "close"):
-            await self.provider.close()
-
-    async def export_summary(self, file_path: str) -> None:
-        """Export the summary and metadata to a file"""
-        if not self.summary:
-            raise SummarizerError("No summary available to export")
-
-        # Validate metadata
-        if not self.metadata and self.video_id:
-            await self._fetch_youtube_metadata()
-
-        data = {
-            "transcript": self.transcript,
-            "summary": self.summary,
-            "provider": self.provider_name,
-            "model": self.provider.model,
-            "settings": {
-                "use_full_context": self.use_full_context,
-                "chunk_size": self.chunk_size if not self.use_full_context else None,
-                "chunk_overlap": self.chunk_overlap
-                if not self.use_full_context
-                else None,
-            },
-            "video_id": self.video_id,  # Will be None for direct transcript input
-            "metadata": self.metadata,
-        }
-
-        import json
-
-        with open(file_path, "w") as f:
-            json.dump(data, f, indent=2)
-        logger.info(f"Summary exported to {file_path}")
-
-    async def _fetch_youtube_metadata(self) -> None:
-        """Fetch and store metadata from YouTube API including video statistics and details.
-        Requires a valid YouTube API key and video ID."""
-        if not self.youtube_api_key or not self.video_id:
-            logger.info(
-                "YouTube API key or video ID not available, skipping metadata fetch"
-            )
-            return
-
-        url = f"https://www.googleapis.com/youtube/v3/videos?id={self.video_id}&key={self.youtube_api_key}&part=snippet,statistics"
-
+    
+    async def _get_text(self, video_input: str) -> str:
+        """
+        Extract text from video input (URL, video ID, or direct text).
+        
+        Args:
+            video_input: YouTube URL, video ID, or direct text
+            
+        Returns:
+            Text content to summarize
+        """
+        # Check if it's a YouTube URL or video ID
+        if is_youtube_url(video_input):
+            video_id = extract_video_id(video_input)
+            if not video_id:
+                raise ValueError("Could not extract video ID from URL")
+            return await self._get_transcript(video_id)
+        
+        # Check if it looks like a video ID (11 characters, alphanumeric + hyphens/underscores)
+        if re.match(r'^[a-zA-Z0-9_-]{11}$', video_input):
+            return await self._get_transcript(video_input)
+        
+        # Assume it's direct text
+        if len(video_input.strip()) < 50:
+            raise ValueError("Input text is too short. Provide a YouTube URL, video ID, or longer text.")
+        
+        return video_input.strip()
+    
+    async def _get_transcript(self, video_id: str) -> str:
+        """
+        Get transcript from YouTube video.
+        
+        Args:
+            video_id: YouTube video ID
+            
+        Returns:
+            Transcript text
+        """
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as response:
-                    if response.status != 200:
-                        logger.error(f"YouTube API error: {response.status}")
-                        return
-
-                    data = await response.json()
-                    if not data.get("items"):
-                        logger.error("No video data found")
-                        return
-
-                    video = data["items"][0]
-                    self.metadata = {
-                        "title": video["snippet"]["title"],
-                        "description": video["snippet"]["description"],
-                        "publishedAt": video["snippet"]["publishedAt"],
-                        "viewCount": video["statistics"]["viewCount"],
-                        "likeCount": video["statistics"].get("likeCount", 0),
-                        "channelTitle": video["snippet"]["channelTitle"],
-                        "url": f"https://www.youtube.com/watch?v={self.video_id}",
-                    }
-                    logger.debug(
-                        f"Successfully fetched metadata for video ID {self.video_id}"
-                    )
-        except aiohttp.ClientError as e:
-            logger.error(f"Error fetching YouTube metadata: {e}")
+            logger.info(f"Fetching transcript for video: {video_id}")
+            
+            # Try to get transcript
+            transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+            
+            # Combine transcript entries
+            transcript_text = " ".join([entry['text'] for entry in transcript_list])
+            
+            # Clean up the text
+            transcript_text = self._clean_transcript(transcript_text)
+            
+            logger.info(f"Transcript fetched successfully ({len(transcript_text)} characters)")
+            return transcript_text
+            
         except Exception as e:
-            logger.error(f"Unexpected error fetching YouTube metadata: {str(e)}")
+            raise Exception(f"Failed to get transcript for video {video_id}: {str(e)}")
+    
+    def _clean_transcript(self, text: str) -> str:
+        """
+        Clean up transcript text.
+        
+        Args:
+            text: Raw transcript text
+            
+        Returns:
+            Cleaned transcript text
+        """
+        # Remove extra whitespace
+        text = re.sub(r'\s+', ' ', text)
+        
+        # Remove common transcript artifacts
+        text = re.sub(r'\[.*?\]', '', text)  # Remove [Music], [Applause], etc.
+        text = re.sub(r'\(.*?\)', '', text)  # Remove (inaudible), etc.
+        
+        # Fix common issues
+        text = text.replace(' .', '.')
+        text = text.replace(' ,', ',')
+        text = text.replace(' !', '!')
+        text = text.replace(' ?', '?')
+        
+        return text.strip()
+    
+    @staticmethod
+    def list_providers() -> list:
+        """List available providers"""
+        return UnifiedProvider.list_providers()
+    
+    @staticmethod
+    def get_default_model(provider: str) -> str:
+        """Get default model for a provider"""
+        return UnifiedProvider.get_default_model(provider)
+    
+    @staticmethod
+    def list_chunking_strategies() -> list:
+        """List available chunking strategies"""
+        return [strategy.value for strategy in ChunkingStrategy]
+
+
+# Convenience function for quick usage
+async def summarize_video(
+    video_input: str,
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
+    chunking_strategy: Optional[str] = None,
+    temperature: Optional[float] = None
+) -> str:
+    """
+    Convenience function to quickly summarize a video.
+    
+    Args:
+        video_input: YouTube URL, video ID, or direct text
+        provider: LLM provider to use (uses user default or "openai" if None)
+        model: Specific model (uses user/provider default if None)
+        chunking_strategy: How to handle long texts (uses user default or "standard" if None)
+        temperature: Generation temperature (uses user default or 0.7 if None)
+        
+    Returns:
+        Generated summary
+    """
+    summarizer = Summarizer()
+    return await summarizer.summarize(
+        video_input=video_input,
+        provider=provider,
+        model=model,
+        chunking_strategy=chunking_strategy,
+        temperature=temperature
+    )

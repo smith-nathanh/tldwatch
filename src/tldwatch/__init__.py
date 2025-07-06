@@ -1,5 +1,4 @@
-from .core.summarizer import Summarizer
-from .core.simple_summarizer import SimpleSummarizer, summarize_video
+from .core.summarizer import Summarizer, summarize_video
 from .core.providers.unified_provider import UnifiedProvider, ChunkingStrategy
 from .core.proxy_config import (
     TldwatchProxyConfig,
@@ -9,11 +8,8 @@ from .core.proxy_config import (
 )
 
 __all__ = [
-    # Legacy interface (for backward compatibility)
+    # Main interface
     "Summarizer",
-    
-    # New simplified interface
-    "SimpleSummarizer",
     "summarize_video",
     "UnifiedProvider", 
     "ChunkingStrategy",

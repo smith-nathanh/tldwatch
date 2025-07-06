@@ -1,11 +1,11 @@
 # tldwatch
 
-A Python library for generating summaries of YouTube video transcripts (or any transcript) using the LLM provider of your choice.
+A Python library for generating summaries of YouTube video transcripts (or any text) using the LLM provider of your choice.
 
 ## Features
 
 - Generate summaries from YouTube videos using video IDs or URLs
-- Process other video transcripts text by passing them directly
+- Process any text by passing it directly
 - Support for multiple AI providers:
   - OpenAI
   - Google
@@ -14,11 +14,9 @@ A Python library for generating summaries of YouTube video transcripts (or any t
   - Cerebras
   - DeepSeek
   - Ollama (local models)
-- Command-line interface for quick summaries
-- Python library for programmatic usage
-- Configurable chunking for long transcripts
-- Rate limiting and error handling
-- Export summaries to JSON with metadata
+- Simple command-line interface with rich text formatting
+- Clean Python API for programmatic usage
+- Smart chunking strategies for long transcripts
 - Proxy support to avoid IP blocking (Webshare integration)
 
 ## Installation
@@ -33,52 +31,52 @@ pip install tldwatch
 
 ```bash
 # Summarize using YouTube URL
-tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc
+tldwatch "https://www.youtube.com/watch?v=QAgR4uQ15rc"
 
 # Using video ID directly
-tldwatch --video-id QAgR4uQ15rc
+tldwatch "QAgR4uQ15rc"
 
-# Process a local transcript
-cat transcript.txt | tldwatch --stdin
+# Process direct text
+tldwatch "Your text to summarize..."
 
 # Save summary to file
-tldwatch --video-id QAgR4uQ15rc --out summary.txt
+tldwatch "QAgR4uQ15rc" --output summary.txt
 
 # Use specific provider/model
-tldwatch --video-id QAgR4uQ15rc --provider groq --model mixtral-8x7b-32768
+tldwatch "QAgR4uQ15rc" --provider groq --model mixtral-8x7b-32768
+
+# Use specific chunking strategy
+tldwatch "QAgR4uQ15rc" --chunking large
 ```
 
 ### Python Library Usage
 
 ```python
 import asyncio
-from tldwatch import Summarizer
+from tldwatch import Summarizer, summarize_video
 
 async def main():
-    # Initialize summarizer
-    summarizer = Summarizer(
-        provider="openai",
-        model="gpt-4o"
-    )
-    
-    # Get summary from video ID
-    summary = await summarizer.get_summary(
-        video_id="QAgR4uQ15rc"
-    )
+    # Quick usage with convenience function
+    summary = await summarize_video("https://www.youtube.com/watch?v=QAgR4uQ15rc")
     print(summary)
     
-    # Or from YouTube URL
-    summary = await summarizer.get_summary(
-        url="https://www.youtube.com/watch?v=QAgR4uQ15rc"
+    # More control with Summarizer class
+    summarizer = Summarizer()
+    
+    # From YouTube URL
+    summary = await summarizer.summarize("https://www.youtube.com/watch?v=QAgR4uQ15rc")
+    
+    # From video ID with specific provider and model
+    summary = await summarizer.summarize(
+        "QAgR4uQ15rc",
+        provider="anthropic",
+        model="claude-3-5-sonnet-20241022",
+        chunking_strategy="large",
+        temperature=0.5
     )
     
-    # Or from direct transcript input
-    summary = await summarizer.get_summary(
-        transcript_text="Your transcript text here..."
-    )
-    
-    # Export summary
-    await summarizer.export_summary("summary.json")
+    # From direct text
+    summary = await summarizer.summarize("Your text to summarize...")
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -102,39 +100,35 @@ export ANTHROPIC_API_KEY="your-key-here"
 export YOUTUBE_API_KEY="your-key-here"
 ```
 
-### Configuration Management
+### User Configuration
 
-tldwatch uses a persistent configuration system that automatically loads your saved settings.
+tldwatch uses a simple user configuration system that automatically loads your saved settings.
 
 #### Configuration Location
-- Linux/Mac: `~/.config/tldwatch/config.json`
+- Linux/Mac: `~/.config/tldwatch/config.json` or `~/.config/tldwatch/config.yaml`
 - Or uses `XDG_CONFIG_HOME` if set
 
-#### Setting Configuration
+#### Creating and Viewing Configuration
 
-You can save your preferred settings permanently:
 ```bash
-# Save default provider and model
-tldwatch --save-config --provider groq --model mixtral-8x7b-32768
+# Create example configuration file
+tldwatch --create-config
 
-# Save with additional settings
-tldwatch --save-config --provider openai --model gpt-4o --temperature 0.8 --chunk-size 6000
+# View current configuration
+tldwatch --show-config
+
+# List available providers
+tldwatch --list-providers
+
+# Show default models
+tldwatch --show-defaults
 ```
 
 #### Configuration Precedence
 Settings are applied in this order (highest to lowest priority):
-1. Command line arguments
+1. Command line arguments / function parameters
 2. User's saved config file
 3. Built-in defaults
-
-For example:
-```bash
-# Uses your saved config settings
-tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc
-
-# Overrides saved config just for this run
-tldwatch https://www.youtube.com/watch?v=QAgR4uQ15rc --provider openai --model gpt-4o
-```
 
 #### Provider Configuration
 
@@ -142,38 +136,37 @@ Each provider has default models, but you can specify alternatives:
 
 ```python
 # OpenAI
-summarizer = Summarizer(provider="openai", model="gpt-4o")
+summarizer = Summarizer()
+summary = await summarizer.summarize("video_id", provider="openai", model="gpt-4o")
+
+# Anthropic
+summary = await summarizer.summarize("video_id", provider="anthropic", model="claude-3-5-sonnet-20241022")
 
 # Groq
-summarizer = Summarizer(provider="groq", model="mixtral-8x7b-32768")
-
-# Cerebras
-summarizer = Summarizer(provider="cerebras", model="llama3.1-8b")
+summary = await summarizer.summarize("video_id", provider="groq", model="mixtral-8x7b-32768")
 
 # Ollama (local)
-summarizer = Summarizer(provider="ollama", model="llama3.1:8b")
+summary = await summarizer.summarize("video_id", provider="ollama", model="llama3.1:8b")
 ```
 
-### Advanced Configuration
+### Chunking Strategies
+
+For long transcripts, tldwatch provides different chunking strategies:
 
 ```python
-summarizer = Summarizer(
-    provider="openai",
-    model="gpt-4o",
-    temperature=0.7,           # Control output randomness
-    chunk_size=4000,          # Size of text chunks
-    chunk_overlap=200,        # Overlap between chunks
-    use_full_context=True,    # Use model's full context window
-    youtube_api_key="..."     # For metadata enrichment
-)
+# Available strategies
+from tldwatch import ChunkingStrategy
+
+# Use specific strategy
+summary = await summarizer.summarize("video_id", chunking_strategy="large")
+summary = await summarizer.summarize("video_id", chunking_strategy=ChunkingStrategy.LARGE)
+
+# Strategy options:
+# - "none": Submit entire transcript (if it fits in context window)
+# - "standard": Default balanced approach
+# - "small": Smaller chunks for detailed processing
+# - "large": Larger chunks for better context preservation
 ```
-
-## Processing Long Transcripts
-
-For long transcripts, tldwatch automatically handles chunking:
-
-1. If `use_full_context=True` and the transcript fits in the model's context window, it processes the entire transcript at once.
-2. Otherwise, it splits the transcript into chunks with overlap, summarizes each chunk, and then combines the summaries.
 
 ## Proxy Configuration (Avoiding IP Blocking)
 
@@ -199,8 +192,9 @@ proxy_config = create_webshare_proxy(
     proxy_password="your_password"
 )
 
-summarizer = Summarizer(proxy_config=proxy_config)
-summary = await summarizer.get_summary(video_id="QAgR4uQ15rc")
+# The proxy configuration will be used automatically
+summarizer = Summarizer()
+summary = await summarizer.summarize("https://www.youtube.com/watch?v=QAgR4uQ15rc")
 ```
 
 ### Generic Proxies
@@ -212,23 +206,19 @@ proxy_config = create_generic_proxy(
     http_url="http://user:pass@proxy.example.com:8080",
     https_url="https://user:pass@proxy.example.com:8080"
 )
-
-summarizer = Summarizer(proxy_config=proxy_config)
 ```
-
-For detailed proxy setup instructions, see [PROXY_SETUP.md](PROXY_SETUP.md).
 
 ## Error Handling
 
 ```python
-from tldwatch import Summarizer, SummarizerError
+from tldwatch import Summarizer
 
 try:
     summarizer = Summarizer()
-    summary = await summarizer.get_summary(video_id="...")
+    summary = await summarizer.summarize("https://www.youtube.com/watch?v=...")
 except ValueError as e:
     print(f"Invalid input: {e}")
-except SummarizerError as e:
+except Exception as e:
     print(f"Summarization error: {e}")
     if "blocked" in str(e).lower():
         print("Consider using proxy configuration")

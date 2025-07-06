@@ -1,102 +1,35 @@
+#!/usr/bin/env python3
+"""
+Command-line interface for tldwatch using the unified provider system.
+"""
+
 import argparse
 import asyncio
+import logging
 import os
 import sys
 from typing import Optional
 
 from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
 
-from ..core.config import Config
-from ..core.summarizer import Summarizer, SummarizerError
+from ..core.summarizer import Summarizer
+from ..core.providers.unified_provider import UnifiedProvider
+from ..core.user_config import get_user_config
 from ..core.proxy_config import create_webshare_proxy, create_generic_proxy, ProxyConfigError
 
 # Initialize rich console for pretty output
 console = Console()
 
 
-def create_parser() -> argparse.ArgumentParser:
-    """Create and configure the argument parser"""
-    parser = argparse.ArgumentParser(
-        description="Get quick summaries of YouTube videos", prog="tldwatch"
+def setup_logging(verbose: bool = False):
+    """Setup logging configuration"""
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-
-    # Input options - mutually exclusive group for video_id/url/stdin
-    input_group = parser.add_mutually_exclusive_group()  # No longer required by default
-    input_group.add_argument("--video-id", help="YouTube video ID")
-    input_group.add_argument("url", nargs="?", help="YouTube video URL")
-    input_group.add_argument(
-        "--stdin", action="store_true", help="Read input from stdin"
-    )
-
-    # Output options
-    parser.add_argument("--out", type=str, help="Output file path must be json file")
-
-    # Provider configuration
-    parser.add_argument(
-        "--provider",
-        type=str,
-        choices=[
-            "openai",
-            "groq",
-            "anthropic",
-            "google",
-            "cerebras",
-            "deepseek",
-            "ollama",
-        ],
-        help="LLM provider to use (defaults to config)",
-    )
-    parser.add_argument(
-        "--model",
-        type=str,
-        help="Model to use with the provider (defaults to provider default)",
-    )
-
-    # Additional options
-    parser.add_argument(
-        "--chunk-size", type=int, help="Size of text chunks for processing"
-    )
-    parser.add_argument(
-        "--temperature", type=float, help="Temperature for generation (0.0 to 1.0)"
-    )
-    parser.add_argument(
-        "--full-context", action="store_true", help="Use model's full context window"
-    )
-    parser.add_argument(
-        "--save-config",
-        action="store_true",
-        help="Save current settings as default configuration",
-    )
-    parser.add_argument(
-        "--print-config",
-        action="store_true",
-        help="Print current configuration settings and config file location",
-    )
-
-    # Proxy configuration
-    proxy_group = parser.add_argument_group("proxy options")
-    proxy_group.add_argument(
-        "--webshare-username",
-        type=str,
-        help="Webshare proxy username (can also use WEBSHARE_PROXY_USERNAME env var)",
-    )
-    proxy_group.add_argument(
-        "--webshare-password",
-        type=str,
-        help="Webshare proxy password (can also use WEBSHARE_PROXY_PASSWORD env var)",
-    )
-    proxy_group.add_argument(
-        "--http-proxy",
-        type=str,
-        help="HTTP proxy URL (e.g., http://user:pass@proxy.example.com:8080)",
-    )
-    proxy_group.add_argument(
-        "--https-proxy",
-        type=str,
-        help="HTTPS proxy URL (e.g., https://user:pass@proxy.example.com:8080)",
-    )
-
-    return parser
 
 
 def create_proxy_config(args: argparse.Namespace):
@@ -132,178 +65,254 @@ def create_proxy_config(args: argparse.Namespace):
     return None
 
 
-async def run_summarizer(
-    video_id: str,
-    provider: Optional[str] = None,
-    model: Optional[str] = None,
-    chunk_size: Optional[int] = None,
-    temperature: Optional[float] = None,
-    use_full_context: bool = False,
-) -> Summarizer:
-    """Run the summarizer with progress indication"""
-    config = Config.load()
+async def main():
+    """Main CLI function"""
+    parser = argparse.ArgumentParser(
+        description="YouTube video summarizer using various LLM providers",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Basic usage with default settings
+  tldwatch "https://youtube.com/watch?v=dQw4w9WgXcQ"
+  
+  # Use a specific provider
+  tldwatch "dQw4w9WgXcQ" --provider anthropic
+  
+  # Use a specific model and chunking strategy
+  tldwatch "video_id" --provider openai --model gpt-4o --chunking large
+  
+  # Submit entire transcript without chunking
+  tldwatch "video_url" --chunking none
+  
+  # Summarize direct text
+  tldwatch "Your text here..." --chunking none
 
-    # Override config with CLI arguments
-    provider = provider or config.get("provider", "openai")
-    model = model or config.get("model")
-    chunk_size = chunk_size or config.get("chunk_size", 4000)
-    temperature = temperature or config.get("temperature", 0.7)
+Configuration:
+  # Create user configuration file
+  tldwatch --create-config
+  
+  # Show current configuration
+  tldwatch --show-config
+  
+  # List available options
+  tldwatch --list-providers
 
-    # Print provider and model info as a persistent message
-    console.print()  # Add a blank line for spacing
-    console.print(f"Provider: {provider}")
-    console.print(f"Model: {model}")
-    console.print()  # Add a blank line for spacing
-
-    summarizer = Summarizer(
-        provider=provider,
-        model=model,
-        temperature=temperature,
-        chunk_size=chunk_size,
-        use_full_context=use_full_context,
-        youtube_api_key=os.environ.get("YOUTUBE_API_KEY"),
+User configuration file: ~/.config/tldwatch/config.json (or .yaml)
+Available providers: openai, anthropic, google, groq, deepseek, cerebras, ollama
+Available chunking strategies: none, standard, small, large
+        """
     )
-
-    # Use live display instead of Progress
-    with console.status("Generating summary...", spinner="dots"):
-        try:
-            await summarizer.get_summary(video_id=video_id)
-            return summarizer
-        except SummarizerError as e:
-            console.print(f"[red]Error: {str(e)}[/red]")
-            sys.exit(1)
-
-
-def save_config(args: argparse.Namespace) -> None:
-    """Save current settings to config file"""
-    config = Config.load()
-
-    # Update config with CLI arguments
-    if args.provider:
-        config["provider"] = args.provider
-    if args.model:
-        config["model"] = args.model
-    if args.chunk_size:
-        config["chunk_size"] = args.chunk_size
-    if args.temperature:
-        config["temperature"] = args.temperature
-
-    config.save()
-    console.print("[green]Configuration saved successfully[/green]")
-
-
-def check_environment(args) -> None:
-    """Check for required environment variables"""
-    required_vars = {
-        "openai": "OPENAI_API_KEY",
-        "google": "GEMINI_API_KEY",
-        "anthropic": "ANTHROPIC_API_KEY",
-        "groq": "GROQ_API_KEY",
-        "cerebras": "CEREBRAS_API_KEY",
-        "deepseek": "DEEPSEEK_API_KEY",
-    }
-
-    config = Config.load()
-    provider = args.provider if args.provider else config.get("provider", "openai")
-
-    if env_var := required_vars.get(provider):
-        if not os.environ.get(env_var):
-            console.print(f"[yellow]Warning: {env_var} not set in environment[/yellow]")
-
-
-async def main() -> None:
-    """Main CLI entry point"""
-    parser = create_parser()
+    
+    # Input argument (optional for info commands)
+    parser.add_argument(
+        "input",
+        nargs="?",
+        help="YouTube URL, video ID, or direct text to summarize"
+    )
+    
+    # Optional arguments
+    parser.add_argument(
+        "--provider", "-p",
+        choices=Summarizer.list_providers(),
+        help="LLM provider to use (uses user config default or 'openai' if not specified)"
+    )
+    
+    parser.add_argument(
+        "--model", "-m",
+        help="Specific model to use (uses provider default if not specified)"
+    )
+    
+    parser.add_argument(
+        "--chunking", "-c",
+        choices=Summarizer.list_chunking_strategies(),
+        help="Chunking strategy for long texts (uses user config default or 'standard' if not specified)"
+    )
+    
+    parser.add_argument(
+        "--temperature", "-t",
+        type=float,
+        help="Generation temperature 0.0-1.0 (uses user config default or 0.7 if not specified)"
+    )
+    
+    parser.add_argument(
+        "--output", "-o",
+        help="Output file (prints to stdout if not specified)"
+    )
+    
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Enable verbose logging"
+    )
+    
+    parser.add_argument(
+        "--list-providers",
+        action="store_true",
+        help="List available providers and exit"
+    )
+    
+    parser.add_argument(
+        "--show-defaults",
+        action="store_true", 
+        help="Show default models for each provider and exit"
+    )
+    
+    parser.add_argument(
+        "--create-config",
+        action="store_true",
+        help="Create an example user configuration file and exit"
+    )
+    
+    parser.add_argument(
+        "--show-config",
+        action="store_true",
+        help="Show current user configuration and exit"
+    )
+    
+    # Proxy configuration
+    proxy_group = parser.add_argument_group("proxy options")
+    proxy_group.add_argument(
+        "--webshare-username",
+        type=str,
+        help="Webshare proxy username (can also use WEBSHARE_PROXY_USERNAME env var)",
+    )
+    proxy_group.add_argument(
+        "--webshare-password",
+        type=str,
+        help="Webshare proxy password (can also use WEBSHARE_PROXY_PASSWORD env var)",
+    )
+    proxy_group.add_argument(
+        "--http-proxy",
+        type=str,
+        help="HTTP proxy URL (e.g., http://user:pass@proxy.example.com:8080)",
+    )
+    proxy_group.add_argument(
+        "--https-proxy",
+        type=str,
+        help="HTTPS proxy URL (e.g., https://user:pass@proxy.example.com:8080)",
+    )
+    
     args = parser.parse_args()
-
-    # Check environment variables
-    check_environment(args)
-
-    if args.print_config:
-        config = Config.load()
-        console.print("[bold]Current Configuration:[/bold]")
-        console.print(config)
-        console.print(f"[bold]Config file location:[/bold] {Config.get_config_path()}")
-        sys.exit(0)
-
-    # Check output is json
-    if args.out and not args.out.endswith(".json"):
-        console.print("[red]Error: Output file must be a JSON file[/red]")
+    
+    # Setup logging
+    setup_logging(args.verbose)
+    
+    # Handle info commands
+    if args.list_providers:
+        console.print(Panel("[bold]Available providers:[/bold]", border_style="blue"))
+        for provider in Summarizer.list_providers():
+            default_model = Summarizer.get_default_model(provider)
+            console.print(f"  [cyan]{provider}[/cyan] (default model: [green]{default_model}[/green])")
+        return
+    
+    if args.show_defaults:
+        console.print(Panel("[bold]Default models for each provider:[/bold]", border_style="blue"))
+        for provider in Summarizer.list_providers():
+            default_model = Summarizer.get_default_model(provider)
+            console.print(f"  [cyan]{provider}[/cyan]: [green]{default_model}[/green]")
+        return
+    
+    if args.create_config:
+        user_config = get_user_config()
+        config_path = user_config.create_example_config()
+        console.print(f"[green]Created example configuration file at:[/green] {config_path}")
+        console.print("[yellow]Edit this file to customize your defaults.[/yellow]")
+        return
+    
+    if args.show_config:
+        user_config = get_user_config()
+        if user_config.has_config():
+            config_path = user_config.get_config_path()
+            console.print(Panel(f"[bold]User configuration loaded from:[/bold] {config_path}", border_style="blue"))
+            console.print(f"Default provider: [cyan]{user_config.get_default_provider() or 'Not set (will use openai)'}[/cyan]")
+            console.print(f"Default temperature: [cyan]{user_config.get_default_temperature() or 'Not set (will use 0.7)'}[/cyan]")
+            console.print(f"Default chunking strategy: [cyan]{user_config.get_default_chunking_strategy() or 'Not set (will use standard)'}[/cyan]")
+            
+            console.print("\n[bold]Provider-specific settings:[/bold]")
+            for provider in Summarizer.list_providers():
+                model = user_config.get_default_model(provider)
+                temp = user_config.get_default_temperature(provider)
+                if model or temp:
+                    console.print(f"  [cyan]{provider}[/cyan]:")
+                    if model:
+                        console.print(f"    model: [green]{model}[/green]")
+                    if temp:
+                        console.print(f"    temperature: [green]{temp}[/green]")
+        else:
+            console.print("[yellow]No user configuration file found.[/yellow]")
+            console.print("[yellow]Use --create-config to create an example configuration.[/yellow]")
+        return
+    
+    # Check if input is required
+    if args.input is None:
+        console.print("[red]Error: Input is required for summarization[/red]")
+        console.print("[yellow]Use --help to see available options[/yellow]")
+        sys.exit(1)
+    
+    # Validate temperature
+    if args.temperature is not None and not 0.0 <= args.temperature <= 1.0:
+        console.print("[red]Error: Temperature must be between 0.0 and 1.0[/red]")
+        sys.exit(1)
+    
+    try:
+        # Create proxy configuration
+        proxy_config = create_proxy_config(args)
+        if proxy_config:
+            console.print(f"[green]Using proxy configuration: {proxy_config}[/green]")
+        
+        # Create a temporary provider to get the actual values that will be used
+        temp_provider = UnifiedProvider(
+            provider=args.provider,
+            model=args.model,
+            temperature=args.temperature,
+            chunking_strategy=args.chunking
+        )
+        
+        # Display configuration
+        console.print(Panel(
+            f"[bold]Provider:[/bold] [cyan]{temp_provider.config.name}[/cyan]\n"
+            f"[bold]Model:[/bold] [green]{temp_provider.model}[/green]\n"
+            f"[bold]Temperature:[/bold] {temp_provider.temperature}\n"
+            f"[bold]Chunking strategy:[/bold] {temp_provider.chunking_strategy.value}",
+            title="Configuration",
+            border_style="blue"
+        ))
+        
+        # Create summarizer and generate summary
+        summarizer = Summarizer()
+        
+        # Generate summary with progress indication
+        with console.status("[bold green]Generating summary...[/bold green]", spinner="dots"):
+            summary = await summarizer.summarize(
+                video_input=args.input,
+                provider=args.provider,
+                model=args.model,
+                chunking_strategy=args.chunking,
+                temperature=args.temperature
+            )
+        
+        # Output the summary
+        if args.output:
+            with open(args.output, 'w', encoding='utf-8') as f:
+                f.write(summary)
+            console.print(f"[green]Summary saved to:[/green] {args.output}")
+        else:
+            console.print(Panel(
+                Text(summary),
+                title="Summary",
+                border_style="green",
+                expand=False
+            ))
+            
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted by user[/yellow]")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"[red]Error: {str(e)}[/red]")
         sys.exit(1)
 
-    # Handle save config first
-    if args.save_config:
-        save_config(args)
-        if not args.video_id and not args.url and not args.stdin:
-            return
 
-    # Validate input requirements if not just saving config
-    if not args.save_config and not (args.video_id or args.url or args.stdin):
-        parser.error("one of the arguments --video-id url --stdin is required")
-
-    # Initialize summarizer early for input validation
-    config = Config.load()
-    provider = args.provider or config.get("provider", "openai")
-    model = args.model or config.get("model")
-    chunk_size = args.chunk_size or config.get("chunk_size", 4000)
-    temperature = args.temperature or config.get("temperature", 0.7)
-
-    # Create proxy configuration
-    proxy_config = create_proxy_config(args) or config.proxy_config
-    if proxy_config:
-        console.print(f"[green]Using proxy configuration: {proxy_config}[/green]")
-
-    summarizer = Summarizer(
-        provider=provider,
-        model=model,
-        temperature=temperature,
-        chunk_size=chunk_size,
-        use_full_context=args.full_context,
-        youtube_api_key=os.environ.get("YOUTUBE_API_KEY"),
-        proxy_config=proxy_config,
-    )
-
-    try:
-        # Get stdin content if needed
-        stdin_content = None
-        if args.stdin:
-            if sys.stdin.isatty():
-                console.print("[red]Error: No input provided on stdin[/red]")
-                sys.exit(1)
-            stdin_content = sys.stdin.read().strip()
-
-        # Validate input using Summarizer's method
-        try:
-            video_id = summarizer.validate_input(
-                video_id=args.video_id, url=args.url, stdin_content=stdin_content
-            )
-        except SummarizerError as e:
-            console.print(f"[red]Error: {str(e)}[/red]")
-            sys.exit(1)
-
-        # Generate summary with progress indication
-        with console.status("Generating summary...", spinner="dots"):
-            try:
-                await summarizer.get_summary(video_id=video_id)
-            except SummarizerError as e:
-                console.print(f"[red]Error: {str(e)}[/red]")
-                sys.exit(1)
-
-        # Handle output
-        if args.out:
-            await summarizer.export_summary(args.out)
-            console.print(f"[green]Summary saved to {args.out}[/green]")
-        else:
-            console.print(summarizer.summary)
-            console.print()  # Add a blank line for spacing
-
-    finally:
-        await summarizer.close()
-
-    sys.exit(0)
-
-
-def cli_entry() -> None:
+def cli_entry():
     """Entry point for the CLI"""
     try:
         asyncio.run(main())

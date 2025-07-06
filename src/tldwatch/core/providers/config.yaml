@@ -1,110 +1,23 @@
+# Simplified provider configuration
+# Only contains default models for each provider
 providers:
   anthropic:
-    default_model: "claude-opus-4-20250514"
-    context_windows:
-      claude-opus-4-20250514: 200000
-      claude-sonnet-4-20250514: 200000
-      claude-3-7-sonnet-20250219: 200000
-      claude-3-5-haiku-20241022: 200000
-      claude-3-5-sonnet-20241022: 200000
-    rate_limits: null
-
+    default_model: "claude-3-5-sonnet-20241022"
+  
   google:
-    default_model: "gemini-2.5-pro"
-    context_windows:
-      gemini-2.5-pro:
-        input: 1048576
-        output: 65536
-      gemini-2.5-flash:
-        input: 1048576
-        output: 65536
-      gemini-2.5-flash-lite-preview-06-17:
-        input: 1000000
-        output: 64000
-      gemini-1.5-pro:
-        input: 2097152
-        output: 8192
-      gemini-1.5-flash:
-        input: 1048576
-        output: 8192
-    rate_limits:
-      gemini-2.5-pro:
-        free_rpm: 5
-        paid_rpm: null
-        tpm: 250000
-      gemini-2.5-flash:
-        free_rpm: 10
-        paid_rpm: null
-        tpm: 250000
-      gemini-2.5-flash-lite-preview-06-17:
-        free_rpm: 15
-        paid_rpm: null
-        tpm: 250000
-      gemini-2.0-flash:
-        free_rpm: 10
-        paid_rpm: null
-        tpm: 4000000
-      gemini-1.5-flash:
-        free_rpm: 15
-        paid_rpm: 2000
-        tpm: 4000000
-      gemini-1.5-flash-8b:
-        free_rpm: 15
-        paid_rpm: 4000
-        tpm: 4000000
-      gemini-1.5-pro:
-        free_rpm: 2
-        paid_rpm: 1000
-        tpm: 4000000
-
+    default_model: "gemini-1.5-flash"
+  
   openai:
-    default_model: "gpt-4.1"
-    context_windows:
-      gpt-4.1: 1048576
-      gpt-4o-mini: 128000
-      gpt-4o: 128000
-      gpt-3.5-turbo: 16384
-      gpt-3.5-turbo-16k: 16385
-    rate_limits: null
-
+    default_model: "gpt-4o-mini"
+  
   deepseek:
     default_model: "deepseek-chat"
-    context_windows:
-      deepseek-chat: 65536
-    rate_limits: null
-
+  
   cerebras:
     default_model: "llama3.1-8b"
-    context_windows:
-      llama3.1-8b: 131072
-      llama3.1-70b: 131072
-      llama-3.3-70b: 131072
-    rate_limits: null
-
+  
   groq:
-    default_model: "mixtral-8x7b-32768"
-    context_windows:
-      mixtral-8x7b-32768: 32768
-      llama-3.3-70b-versatile: 131072
-      llama-3.1-8b-instant: 131072
-      gemma2-9b-it: 8192
-      llama3-8b-8192: 8192
-    rate_limits:
-      mixtral-8x7b-32768:
-        tpm: 5000
-      llama-3.3-70b-versatile:
-        tpm: 6000
-      llama-3.1-8b-instant:
-        tpm: 20000
-      gemma2-9b-it:
-        tpm: 14400
-      llama3-8b-8192:
-        tpm: 30000
-
+    default_model: "llama-3.1-8b-instant"
+  
   ollama:
     default_model: "llama3.1:8b"
-    context_windows:
-      llama3.1:8b: 128000
-      llama3.3:70b: 8192
-      phi4:14b: 8192
-    rate_limits: null

@@ -40,7 +40,7 @@ This document summarizes the Webshare proxy integration added to tldwatch to avo
 6. **Comprehensive Examples**
    - `examples/proxy_usage.py`: Complete proxy usage examples
    - `examples/complete_proxy_example.py`: Full integration demonstration
-   - `setup_proxy_test.py`: Setup verification script
+   - `tests/integration/proxy/test_proxy_setup.py`: Setup verification script
 
 7. **Documentation**
    - `PROXY_SETUP.md`: Detailed setup instructions
@@ -48,7 +48,7 @@ This document summarizes the Webshare proxy integration added to tldwatch to avo
    - Updated `README.md` with proxy configuration section
 
 8. **Testing**
-   - `test_proxy_integration.py`: Comprehensive test suite
+   - `tests/integration/proxy/test_proxy_integration.py`: Comprehensive test suite
    - Tests for all proxy configuration scenarios
    - CLI integration testing
    - Error handling verification
@@ -130,8 +130,8 @@ tldwatch "https://www.youtube.com/watch?v=QAgR4uQ15rc"
 - `src/tldwatch/core/proxy_config.py`
 - `examples/proxy_usage.py`
 - `examples/complete_proxy_example.py`
-- `setup_proxy_test.py`
-- `test_proxy_integration.py`
+- `tests/integration/proxy/test_proxy_setup.py`
+- `tests/integration/proxy/test_proxy_integration.py`
 - `PROXY_SETUP.md`
 - `WEBSHARE_INTEGRATION.md`
 - `PROXY_INTEGRATION_SUMMARY.md`
@@ -154,15 +154,15 @@ The integration includes comprehensive testing:
 
 Run tests with:
 ```bash
-python test_proxy_integration.py
-python setup_proxy_test.py  # Requires actual credentials
+python tests/integration/proxy/test_proxy_integration.py
+python tests/integration/proxy/test_proxy_setup.py  # Requires actual credentials
 ```
 
 ## Next Steps for Users
 
 1. **Sign up for Webshare**: Get a residential proxy package
 2. **Set credentials**: Use environment variables or CLI options
-3. **Test setup**: Run `setup_proxy_test.py` to verify configuration
+3. **Test setup**: Run `tests/integration/proxy/test_proxy_setup.py` to verify configuration
 4. **Use in production**: Integrate with existing tldwatch workflows
 
 ## Backward Compatibility

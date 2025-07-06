@@ -26,7 +26,7 @@ export OPENAI_API_KEY="your_openai_key"  # or other provider key
 
 ```bash
 cd tldwatch
-python setup_proxy_test.py
+python tests/integration/proxy/test_proxy_setup.py
 ```
 
 ### 4. Use with tldwatch
@@ -158,7 +158,7 @@ except SummarizerError as e:
 - `src/tldwatch/core/proxy_config.py`: Proxy configuration classes
 - `examples/proxy_usage.py`: Comprehensive proxy examples
 - `examples/complete_proxy_example.py`: Full integration example
-- `setup_proxy_test.py`: Setup verification script
+- `tests/integration/proxy/test_proxy_setup.py`: Setup verification script
 - `PROXY_SETUP.md`: Detailed proxy setup guide
 - `WEBSHARE_INTEGRATION.md`: This file
 
@@ -176,7 +176,7 @@ except SummarizerError as e:
 3. **Handle Errors**: Implement proper retry logic for failed requests
 4. **Monitor Usage**: Track your Webshare usage to avoid exceeding limits
 5. **Secure Credentials**: Store proxy credentials in environment variables, not code
-6. **Test First**: Use `setup_proxy_test.py` to verify your configuration
+6. **Test First**: Use `tests/integration/proxy/test_proxy_setup.py` to verify your configuration
 
 ## Troubleshooting
 
@@ -201,7 +201,7 @@ except SummarizerError as e:
 
 ```bash
 # Test proxy configuration
-python setup_proxy_test.py
+python tests/integration/proxy/test_proxy_setup.py
 
 # Test CLI with proxy
 tldwatch --webshare-username "user" --webshare-password "pass" --video-id "QAgR4uQ15rc"
@@ -225,7 +225,7 @@ python examples/complete_proxy_example.py
 For issues:
 1. Check Webshare account status and billing
 2. Verify proxy credentials
-3. Test with `setup_proxy_test.py`
+3. Test with `tests/integration/proxy/test_proxy_setup.py`
 4. Review error messages for specific guidance
 5. Check tldwatch logs for detailed error information
 

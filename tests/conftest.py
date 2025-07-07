@@ -1,193 +1,136 @@
-# conftest.py
+"""
+Pytest configuration and shared fixtures for tldwatch tests.
+"""
+
 import os
-from typing import Dict, Type
-from unittest.mock import patch
+import tempfile
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tldwatch.core.providers.anthropic import AnthropicProvider
-from tldwatch.core.providers.base import BaseProvider
-from tldwatch.core.providers.cerebras import CerebrasProvider
-from tldwatch.core.providers.deepseek import DeepSeekProvider
-from tldwatch.core.providers.google import GoogleProvider
-from tldwatch.core.providers.groq import GroqProvider
-from tldwatch.core.providers.ollama import OllamaProvider
-from tldwatch.core.providers.openai import OpenAIProvider
 
-# Map of provider names to their classes
-PROVIDERS: Dict[str, Type[BaseProvider]] = {
-    "openai": OpenAIProvider,
-    "anthropic": AnthropicProvider,
-    "groq": GroqProvider,
-    "cerebras": CerebrasProvider,
-    "deepseek": DeepSeekProvider,
-    "ollama": OllamaProvider,
-    "google": GoogleProvider,
-}
-
-
-@pytest.fixture(autouse=True)
-def mock_ollama_models():
-    """Mock Ollama's available models check"""
-    with patch(
-        "tldwatch.core.providers.ollama.OllamaProvider._get_available_models"
-    ) as mock:
-        mock.return_value = ["llama3.1:8b"]
-        yield
+@pytest.fixture
+def temp_cache_dir():
+    """Provide a temporary cache directory for testing."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield tmpdir
 
 
 @pytest.fixture
-def mock_config(request):
-    """Configuration fixture with provider-specific models"""
-    provider_models = {
-        "openai": "gpt-4o-mini",
-        "anthropic": "claude-3-5-sonnet-20241022",
-        "deepseek": "deepseek-chat",
-        "groq": "mixtral-8x7b-32768",
-        "cerebras": "llama3.1-8b",
-        "ollama": "llama3.1:8b",
-        "google": "gemini-2.5-flash",
-    }
-
-    provider = request.param if hasattr(request, "param") else "openai"
-    return {
-        "provider": provider,
-        "model": provider_models[provider],
-        "chunk_size": 4000,
-        "chunk_overlap": 200,
-        "temperature": 0.7,
-        "use_full_context": False,
-    }
+def temp_config_dir():
+    """Provide a temporary config directory for testing."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield tmpdir
 
 
 @pytest.fixture
-def sample_transcript():
-    """Sample transcript data for summarization tests"""
-    return (
-        "This is a sample transcript with multiple sentences. "
-        "It contains enough content to test chunking. "
-        "The content should be meaningful enough to generate summaries. "
-        "It should also be long enough to test context windows. "
-    ) * 25  # Makes it long enough to test chunking
-
-
-@pytest.fixture(autouse=True)
-def mock_env_vars():
-    """Mock environment variables for API keys. Automatically used in all tests."""
-    with patch.dict(
-        os.environ,
+def mock_youtube_transcript():
+    """Mock YouTube transcript API responses."""
+    mock_transcript = [
         {
-            "OPENAI_API_KEY": "sk-proj-key",
-            "ANTHROPIC_API_KEY": "sk-ant-test-key",
-            "GROQ_API_KEY": "gsk-test-key",
-            "CEREBRAS_API_KEY": "csk-test-key",
-            "DEEPSEEK_API_KEY": "sk-test-key",
-            "GEMINI_API_KEY": "AIzaSyTest-key",
-            "YOUTUBE_API_KEY": "yt-test-key",
+            "text": "Welcome to this video about artificial intelligence.",
+            "start": 0.0,
+            "duration": 3.5,
         },
-    ):
-        yield
+        {
+            "text": "Today we'll be discussing machine learning fundamentals.",
+            "start": 3.5,
+            "duration": 4.2,
+        },
+        {
+            "text": "Let's start with supervised learning algorithms.",
+            "start": 7.7,
+            "duration": 3.8,
+        },
+        {
+            "text": "Neural networks are a powerful tool for pattern recognition.",
+            "start": 11.5,
+            "duration": 4.1,
+        },
+        {
+            "text": "Thank you for watching and don't forget to subscribe!",
+            "start": 15.6,
+            "duration": 3.2,
+        },
+    ]
+
+    with patch("youtube_transcript_api.YouTubeTranscriptApi.get_transcript") as mock:
+        mock.return_value = mock_transcript
+        yield mock
 
 
 @pytest.fixture
-def provider_instance(request):
-    """Create provider instance for testing"""
-    provider_name = request.param
-    provider_class = PROVIDERS[provider_name]
-
-    # Create instance with default configuration
-    instance = provider_class(temperature=0.7)
-    return instance
-
-
-@pytest.fixture
-def mock_youtube_api():
-    """Mock YouTube API responses"""
-    return {
-        "items": [
+def mock_aiohttp_session():
+    """Mock aiohttp session for API calls."""
+    mock_response = MagicMock()
+    mock_response.status = 200
+    mock_response.json.return_value = {
+        "choices": [
             {
-                "snippet": {
-                    "title": "Test Video",
-                    "description": "Test Description",
-                    "publishedAt": "2024-01-01T00:00:00Z",
-                    "channelTitle": "Test Channel",
-                },
-                "statistics": {"viewCount": "1000", "likeCount": "100"},
+                "message": {
+                    "content": "This is a test summary of the video content about AI and machine learning."
+                }
             }
         ]
     }
 
+    mock_session = MagicMock()
+    mock_session.post.return_value.__aenter__.return_value = mock_response
+
+    with patch("aiohttp.ClientSession", return_value=mock_session):
+        yield mock_session
+
 
 @pytest.fixture
-def mock_successful_completion():
-    """Mock successful API completion response - matches provider response processing"""
-    return {
-        "openai": "Summary",  # OpenAI provider extracts content from response
-        "anthropic": "Summary",  # Anthropic provider extracts text from response
-        "groq": "Summary",  # Groq provider extracts content
-        "cerebras": "Summary",  # Cerebras returns generated text directly
-        "deepseek": "Summary",  # DeepSeek provider extracts content
-        "ollama": "Summary",  # Ollama returns response directly
-        "google": "Summary",
+def sample_video_id():
+    """Provide a sample YouTube video ID for testing."""
+    return "dQw4w9WgXcQ"
+
+
+@pytest.fixture
+def sample_video_url():
+    """Provide a sample YouTube video URL for testing."""
+    return "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
+
+@pytest.fixture
+def sample_transcript_text():
+    """Provide sample transcript text for testing."""
+    return (
+        "Welcome to this video about artificial intelligence. "
+        "Today we'll be discussing machine learning fundamentals. "
+        "Let's start with supervised learning algorithms. "
+        "Neural networks are a powerful tool for pattern recognition. "
+        "Thank you for watching and don't forget to subscribe!"
+    )
+
+
+@pytest.fixture
+def mock_env_vars():
+    """Mock environment variables for testing."""
+    env_vars = {
+        "OPENAI_API_KEY": "test-openai-key",
+        "ANTHROPIC_API_KEY": "test-anthropic-key",
+        "GOOGLE_API_KEY": "test-google-key",
     }
 
-
-@pytest.fixture
-def mock_auth_error():
-    """Mock authentication error responses for each provider"""
-    return {
-        "openai": {"error": {"code": "invalid_api_key", "message": "Invalid API key"}},
-        "anthropic": {
-            "error": {"type": "authentication_error", "message": "Invalid API key"}
-        },
-        "groq": {
-            "error": {"type": "authentication_error", "message": "Invalid API key"}
-        },
-        "cerebras": {"error": "Authentication failed", "status_code": 401},
-        "deepseek": {
-            "error": {"code": "invalid_api_key", "message": "Invalid API key"}
-        },
-        "ollama": {"error": "Authentication error", "status_code": 401},
-        "google": {"error": {"code": "invalid_api_key", "message": "Invalid API key"}},
-    }
+    with patch.dict(os.environ, env_vars):
+        yield env_vars
 
 
 @pytest.fixture
-def mock_rate_limit_error():
-    """Mock rate limit error responses"""
+def sample_user_config():
+    """Provide a sample user configuration for testing."""
     return {
-        "openai": {
-            "error": {"code": "rate_limit_exceeded", "message": "Rate limit exceeded"}
+        "default_provider": "openai",
+        "default_temperature": 0.7,
+        "default_chunking_strategy": "standard",
+        "cache": {
+            "enabled": True,
+            "directory": None,  # Will use default
         },
-        "anthropic": {
-            "error": {"type": "rate_limit_error", "message": "Too many requests"}
+        "providers": {
+            "openai": {"default_model": "gpt-4o", "temperature": 0.5},
+            "anthropic": {"default_model": "claude-3-5-sonnet-20241022"},
         },
-        "groq": {
-            "error": {"type": "rate_limit_error", "message": "Rate limit exceeded"}
-        },
-        "cerebras": {"error": "Too many requests", "status_code": 429},
-        "deepseek": {
-            "error": {"code": "rate_limit_exceeded", "message": "Rate limit exceeded"}
-        },
-        "ollama": {"error": "Too many requests", "status_code": 429},
-        "google": {
-            "error": {"code": "rate_limit_exceeded", "message": "Rate limit exceeded"}
-        },
-    }
-
-
-@pytest.fixture
-def mock_network_error():
-    """Mock network error responses for timeout/connection issues"""
-    return {
-        provider: {"error": "Connection error", "status_code": 500}
-        for provider in [
-            "openai",
-            "anthropic",
-            "groq",
-            "cerebras",
-            "deepseek",
-            "ollama",
-            "google",
-        ]
     }

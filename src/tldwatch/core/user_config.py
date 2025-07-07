@@ -39,8 +39,10 @@ class UserConfig:
     }
     """
 
-    def __init__(self):
-        self.config_dir = Path.home() / ".config" / "tldwatch"
+    def __init__(self, config_dir: Optional[Path] = None):
+        if config_dir is None:
+            config_dir = Path.home() / ".config" / "tldwatch"
+        self.config_dir = config_dir
         self.config_paths = [
             self.config_dir / "config.json",
             self.config_dir / "config.yaml",
@@ -98,6 +100,8 @@ class UserConfig:
             temp = provider_config.get("temperature")
             if temp is not None:
                 return temp
+            # Don't fall back to global default when asking for provider-specific
+            return None
 
         return self.get("default_temperature")
 

@@ -489,9 +489,9 @@ class SummaryCache:
         video_ids = set()
         try:
             # Get video IDs from summary cache files
-            for cache_file in self.cache_dir.glob("*_cache.json"):
-                # Extract video ID from filename (remove "_cache.json" suffix)
-                video_id = cache_file.stem.replace("_cache", "")
+            for cache_file in self.cache_dir.glob("*_summary.json"):
+                # Extract video ID from filename (remove "_summary.json" suffix)
+                video_id = cache_file.stem.replace("_summary", "")
                 video_ids.add(video_id)
 
             # Get video IDs from transcript cache files
@@ -517,7 +517,7 @@ class SummaryCache:
         transcript_count = 0
 
         try:
-            for cache_file in self.cache_dir.glob("*_cache.json"):
+            for cache_file in self.cache_dir.glob("*_summary.json"):
                 total_size += cache_file.stat().st_size
                 summary_count += 1
             for transcript_file in self.cache_dir.glob("*_transcript.json"):

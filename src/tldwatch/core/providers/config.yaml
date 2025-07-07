@@ -1,23 +1,50 @@
-# Simplified provider configuration
-# Only contains default models for each provider
+# Provider configuration for TLDWatch
+# Contains all provider settings including API endpoints, keys, and default models
 providers:
+  openai:
+    name: "openai"
+    api_key_env: "OPENAI_API_KEY"
+    api_base: "https://api.openai.com/v1"
+    default_model: "gpt-4o-mini"
+    # https://platform.openai.com/docs/models
+  
   anthropic:
+    name: "anthropic"
+    api_key_env: "ANTHROPIC_API_KEY"
+    api_base: "https://api.anthropic.com/v1"
     default_model: "claude-3-5-sonnet-20241022"
+    # https://docs.anthropic.com/en/docs/about-claude/models/overview
   
   google:
-    default_model: "gemini-1.5-flash"
-  
-  openai:
-    default_model: "gpt-4o-mini"
-  
-  deepseek:
-    default_model: "deepseek-chat"
-  
-  cerebras:
-    default_model: "llama3.1-8b"
+    name: "google"
+    api_key_env: "GEMINI_API_KEY"
+    api_base: "https://generativelanguage.googleapis.com/v1beta"
+    default_model: "gemini-2.5-flash"
+    # https://ai.google.dev/gemini-api/docs/models
   
   groq:
+    name: "groq"
+    api_key_env: "GROQ_API_KEY"
+    api_base: "https://api.groq.com/openai/v1"
     default_model: "llama-3.1-8b-instant"
+    # https://console.groq.com/docs/models
+  
+  deepseek:
+    name: "deepseek"
+    api_key_env: "DEEPSEEK_API_KEY"
+    api_base: "https://api.deepseek.com/v1"
+    default_model: "deepseek-chat"
+    # https://api-docs.deepseek.com/quick_start/pricing
+  
+  cerebras:
+    name: "cerebras"
+    api_key_env: "CEREBRAS_API_KEY"
+    api_base: "https://api.cerebras.ai/v1"
+    default_model: "llama3.1-8b"
+    # https://inference-docs.cerebras.ai/support/pricing
   
   ollama:
+    name: "ollama"
+    api_key_env: null  # Local provider, no API key needed
+    api_base: "http://localhost:11434/v1"
     default_model: "llama3.1:8b"

@@ -1,15 +1,15 @@
 # TLDWatch User Configuration Guide
 
-TLDWatch supports user configuration files to customize your default settings. This allows you to set your preferred provider, models, temperature, and chunking strategy without having to specify them every time.
+TLDWatch supports comprehensive user configuration to customize your defaults for providers, models, caching, proxy settings, and more. This eliminates the need to specify the same parameters repeatedly.
 
 ## Quick Start
 
 ```bash
 # Create an example configuration file
-tldwatch-simple --create-config
+tldwatch --create-config
 
 # View your current configuration
-tldwatch-simple --show-config
+tldwatch --show-config
 
 # Edit the configuration file
 nano ~/.config/tldwatch/config.json
@@ -24,30 +24,48 @@ TLDWatch looks for configuration files in this order:
 
 The first file found will be used. If no configuration file exists, TLDWatch uses built-in defaults.
 
-## Configuration Format
+## Complete Configuration Format
 
 ### JSON Format (config.json)
 
 ```json
 {
-  "default_provider": "anthropic",
-  "default_temperature": 0.3,
-  "default_chunking_strategy": "large",
+  "default_provider": "openai",
+  "default_temperature": 0.7,
+  "default_chunking_strategy": "standard",
+  "cache": {
+    "enabled": true,
+    "cache_dir": null,
+    "max_age_days": 30
+  },
+  "proxy": {
+    "type": "webshare",
+    "proxy_username": "your_username",
+    "proxy_password": "your_password"
+  },
   "providers": {
     "openai": {
-      "default_model": "gpt-4o",
-      "temperature": 0.8
+      "default_model": "gpt-4o-mini",
+      "temperature": 0.7
     },
     "anthropic": {
       "default_model": "claude-3-5-sonnet-20241022",
-      "temperature": 0.2
+      "temperature": 0.5
     },
     "google": {
-      "default_model": "gemini-1.5-pro"
+      "default_model": "gemini-1.5-flash"
     },
     "groq": {
-      "default_model": "llama-3.1-70b-versatile",
-      "temperature": 0.6
+      "default_model": "llama-3.1-8b-instant"
+    },
+    "deepseek": {
+      "default_model": "deepseek-chat"
+    },
+    "cerebras": {
+      "default_model": "llama3.1-8b"
+    },
+    "ollama": {
+      "default_model": "llama3.1:8b"
     }
   }
 }
@@ -56,22 +74,31 @@ The first file found will be used. If no configuration file exists, TLDWatch use
 ### YAML Format (config.yaml)
 
 ```yaml
-default_provider: anthropic
-default_temperature: 0.3
-default_chunking_strategy: large
+default_provider: openai
+default_temperature: 0.7
+default_chunking_strategy: standard
+
+cache:
+  enabled: true
+  cache_dir: null  # Uses default if null
+  max_age_days: 30
+
+proxy:
+  type: webshare
+  proxy_username: your_username
+  proxy_password: your_password
 
 providers:
   openai:
-    default_model: gpt-4o
-    temperature: 0.8
+    default_model: gpt-4o-mini
+    temperature: 0.7
   anthropic:
     default_model: claude-3-5-sonnet-20241022
-    temperature: 0.2
+    temperature: 0.5
   google:
-    default_model: gemini-1.5-pro
+    default_model: gemini-1.5-flash
   groq:
-    default_model: llama-3.1-70b-versatile
-    temperature: 0.6
+    default_model: llama-3.1-8b-instant
 ```
 
 ## Configuration Options
@@ -89,6 +116,40 @@ providers:
 - **`default_chunking_strategy`**: How to handle long texts
   - Options: `none`, `standard`, `small`, `large`
   - Default: `standard`
+
+### Caching Configuration
+
+- **`cache.enabled`**: Enable/disable caching (default: `true`)
+- **`cache.cache_dir`**: Custom cache directory (default: uses system cache)
+- **`cache.max_age_days`**: Days to keep cache entries (default: 30)
+
+Cache location defaults:
+- Linux/macOS: `~/.cache/tldwatch/summaries/`
+- Windows: `%LOCALAPPDATA%\tldwatch\summaries\`
+
+### Proxy Configuration
+
+**Webshare Rotating Residential Proxies (Recommended):**
+```json
+{
+  "proxy": {
+    "type": "webshare",
+    "proxy_username": "your_username",
+    "proxy_password": "your_password"
+  }
+}
+```
+
+**Generic HTTP/HTTPS Proxies:**
+```json
+{
+  "proxy": {
+    "type": "generic",
+    "http_url": "http://user:pass@proxy.example.com:8080",
+    "https_url": "https://user:pass@proxy.example.com:8080"
+  }
+}
+```
 
 ### Provider-Specific Settings
 
@@ -133,7 +194,7 @@ For each provider, you can specify:
 - `mistral:7b`
 - Any model you have installed locally
 
-## How Configuration Priority Works
+## Priority and Configuration Resolution
 
 Settings are resolved in this order (highest to lowest priority):
 
@@ -141,7 +202,7 @@ Settings are resolved in this order (highest to lowest priority):
 2. **User configuration** - Values from your config file
 3. **Package defaults** - Built-in fallback values
 
-### Examples
+### Example Usage
 
 With this configuration:
 ```json
@@ -174,30 +235,124 @@ summary = await summarize_video("video_id", provider="openai")
 
 # Uses: anthropic, claude-3-5-sonnet-20241022, temperature=0.9 (override)
 summary = await summarize_video("video_id", temperature=0.9)
+```
 
-# Uses: openai, gpt-4o-mini (override), temperature=0.8
-summary = await summarize_video("video_id", provider="openai", model="gpt-4o-mini")
+## Caching System
+
+TLDWatch includes automatic caching to save time and API costs:
+
+### Cache Behavior
+- Stores summaries with metadata (provider, model, chunking strategy, temperature)
+- Only returns cached summaries when parameters match exactly
+- Different parameters create separate cache entries
+
+### Cache Management
+
+```bash
+# View cache statistics
+tldwatch-cache stats
+
+# List cached summaries
+tldwatch-cache list
+
+# Show specific video cache
+tldwatch-cache show <video_id>
+
+# Clear cache for specific video
+tldwatch-cache clear --video-id <video_id>
+
+# Clear all cache
+tldwatch-cache clear
+
+# Clean up old entries
+tldwatch-cache cleanup --max-age-days 7
+```
+
+### Programmatic Cache Control
+
+```python
+from tldwatch import Summarizer, get_cache_stats, clear_cache
+
+# Disable cache for one request
+summary = await summarizer.summarize(video_id, use_cache=False)
+
+# Force regeneration (clears cache first)
+tldwatch "video_url" --force-regenerate
+
+# Get cache statistics
+stats = get_cache_stats()
+print(f"Cached videos: {stats['total_videos']}")
+```
+
+## Proxy Configuration
+
+### Why Use Proxies?
+
+YouTube may block IP addresses making frequent requests, especially from cloud providers. Proxies help avoid:
+- `RequestBlocked` or `IpBlocked` exceptions
+- Failed transcript fetching
+- Rate limiting issues
+
+### Recommended: Webshare Rotating Residential Proxies
+
+1. **Setup**: Sign up at [https://www.webshare.io/](https://www.webshare.io/)
+2. **Purchase**: Buy a "Residential" proxy package (⚠️ NOT "Proxy Server")
+3. **Configure**: Add credentials to your config file or environment variables
+
+```bash
+# Environment variables
+export WEBSHARE_PROXY_USERNAME="your_username"
+export WEBSHARE_PROXY_PASSWORD="your_password"
+
+# CLI usage
+tldwatch --webshare-username "user" --webshare-password "pass" "video_url"
+```
+
+### Alternative: Generic HTTP/HTTPS Proxies
+
+```bash
+# Environment variables
+export HTTP_PROXY_URL="http://user:pass@proxy.example.com:8080"
+export HTTPS_PROXY_URL="https://user:pass@proxy.example.com:8080"
+
+# CLI usage
+tldwatch --http-proxy "http://user:pass@proxy.example.com:8080" "video_url"
+```
+
+### Library Usage with Proxies
+
+```python
+from tldwatch import Summarizer, create_webshare_proxy
+
+# Webshare proxy
+proxy_config = create_webshare_proxy(
+    proxy_username="your_username",
+    proxy_password="your_password"
+)
+
+summarizer = Summarizer(proxy_config=proxy_config)
+summary = await summarizer.summarize("video_id")
 ```
 
 ## CLI Configuration Commands
 
 ```bash
 # Create example configuration file
-tldwatch-simple --create-config
+tldwatch --create-config
 
 # Show current configuration
-tldwatch-simple --show-config
+tldwatch --show-config
 
 # List available providers
-tldwatch-simple --list-providers
+tldwatch --list-providers
 
 # Show default models for each provider
-tldwatch-simple --show-defaults
+tldwatch --show-defaults
 ```
 
 ## Environment Variables
 
-You still need to set API keys as environment variables:
+Set API keys as environment variables:
 
 ```bash
 export OPENAI_API_KEY="your-openai-key"
@@ -216,46 +371,6 @@ export CEREBRAS_API_KEY="your-cerebras-key"
 - **`small`**: ~2000 character chunks (more detailed processing)
 - **`large`**: ~8000 character chunks (better context preservation)
 
-## Configuration Validation
-
-TLDWatch validates your configuration and will:
-- Warn about unknown providers or models
-- Fall back to defaults for invalid values
-- Show helpful error messages for configuration issues
-
-## Troubleshooting
-
-### Configuration Not Loading
-
-1. Check file location: `~/.config/tldwatch/config.json`
-2. Validate JSON/YAML syntax
-3. Check file permissions
-4. Use `--show-config` to see what's loaded
-
-### Invalid Configuration
-
-```bash
-# Check your configuration
-tldwatch-simple --show-config
-
-# Recreate default configuration
-rm ~/.config/tldwatch/config.*
-tldwatch-simple --create-config
-```
-
-### Provider Issues
-
-```bash
-# List available providers
-tldwatch-simple --list-providers
-
-# Show default models
-tldwatch-simple --show-defaults
-
-# Test specific provider
-tldwatch-simple "test text" --provider openai --chunking none
-```
-
 ## Example Configurations
 
 ### Minimal Configuration
@@ -265,31 +380,28 @@ tldwatch-simple "test text" --provider openai --chunking none
 }
 ```
 
-### Power User Configuration
+### Production Configuration
 ```json
 {
-  "default_provider": "anthropic",
-  "default_temperature": 0.1,
+  "default_provider": "openai",
+  "default_temperature": 0.5,
   "default_chunking_strategy": "large",
+  "cache": {
+    "enabled": true,
+    "max_age_days": 60
+  },
+  "proxy": {
+    "type": "webshare",
+    "proxy_username": "your_username",
+    "proxy_password": "your_password"
+  },
   "providers": {
     "openai": {
-      "default_model": "gpt-4o",
-      "temperature": 0.3
+      "default_model": "gpt-4o-mini",
+      "temperature": 0.5
     },
     "anthropic": {
       "default_model": "claude-3-5-sonnet-20241022",
-      "temperature": 0.1
-    },
-    "google": {
-      "default_model": "gemini-1.5-pro",
-      "temperature": 0.2
-    },
-    "groq": {
-      "default_model": "llama-3.1-70b-versatile",
-      "temperature": 0.4
-    },
-    "ollama": {
-      "default_model": "llama3.1:70b",
       "temperature": 0.3
     }
   }
@@ -316,13 +428,54 @@ tldwatch-simple "test text" --provider openai --chunking none
 }
 ```
 
-## Migration from Legacy Interface
+## Troubleshooting
 
-The user configuration system is completely separate from the legacy interface. Your existing code will continue to work unchanged, and you can gradually adopt the new simplified interface with user configuration.
+### Configuration Not Loading
+
+1. Check file location: `~/.config/tldwatch/config.json`
+2. Validate JSON/YAML syntax
+3. Check file permissions
+4. Use `tldwatch --show-config` to see what's loaded
+
+### Proxy Issues
+
+1. **"Proxy configuration error"**: Check credentials and account status
+2. **"Access blocked"**: Try different proxy provider or contact support
+3. **Slow performance**: Proxies add latency, consider faster endpoints
+
+### Cache Issues
+
+1. **Cache not working**: Check `cache.enabled` and directory permissions
+2. **Parameters not matching**: Ensure exact same provider/model/temperature
+3. **Storage issues**: Use `tldwatch-cache cleanup` to free space
+
+### Provider Issues
+
+```bash
+# List available providers
+tldwatch --list-providers
+
+# Show default models
+tldwatch --show-defaults
+
+# Test specific provider
+tldwatch "test text" --provider openai --chunking none
+```
+
+### Invalid Configuration
+
+```bash
+# Check your configuration
+tldwatch --show-config
+
+# Recreate default configuration
+rm ~/.config/tldwatch/config.*
+tldwatch --create-config
+```
 
 ## Support
 
-For issues with user configuration:
+For configuration issues:
 1. Check this documentation
 2. Use `--show-config` to debug
 3. Recreate configuration with `--create-config`

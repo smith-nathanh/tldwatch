@@ -21,6 +21,7 @@ dependencies = [
 # CLI entry points
 [project.scripts]
 tldwatch = "tldwatch.cli.main:cli_entry"
+tldwatch-cache = "tldwatch.cli.cache:main"
 
 # Optional development dependencies
 [project.optional-dependencies]

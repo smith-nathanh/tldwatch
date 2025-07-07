@@ -1,1 +1,0 @@
-"""Proxy integration tests."""

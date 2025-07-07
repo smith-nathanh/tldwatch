@@ -4,7 +4,7 @@ Tests provider configuration, initialization, and basic functionality.
 """
 
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -230,9 +230,11 @@ class TestUnifiedProvider:
         # Mock response
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json.return_value = {
-            "choices": [{"message": {"content": "This is a test summary."}}]
-        }
+        mock_response.json = AsyncMock(
+            return_value={
+                "choices": [{"message": {"content": "This is a test summary."}}]
+            }
+        )
 
         mock_session_instance = MagicMock()
         mock_session_instance.post.return_value.__aenter__.return_value = mock_response
@@ -261,7 +263,7 @@ class TestUnifiedProvider:
         # Mock error response
         mock_response = MagicMock()
         mock_response.status = 400
-        mock_response.text.return_value = "Bad Request"
+        mock_response.text = AsyncMock(return_value="Bad Request")
 
         mock_session_instance = MagicMock()
         mock_session_instance.post.return_value.__aenter__.return_value = mock_response
@@ -278,7 +280,7 @@ class TestUnifiedProvider:
         ):
             provider = UnifiedProvider(provider="openai")
 
-            with pytest.raises(ProviderError, match="API request failed"):
+            with pytest.raises(ProviderError, match="Failed after.*attempts"):
                 await provider.generate_summary("Test text")
 
     def test_text_chunking_none(

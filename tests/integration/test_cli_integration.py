@@ -3,9 +3,10 @@ Integration tests for CLI functionality.
 Tests the complete CLI workflow with real components.
 """
 
+import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -39,15 +40,15 @@ class TestCLIIntegration:
     ):
         """Test CLI with YouTube URL input."""
         # Setup CLI arguments
-        mock_argv.__getitem__.side_effect = lambda x: [
+        sys.argv = [
             "tldwatch",
             "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
             "--provider",
             "openai",
             "--model",
             "gpt-4o",
-        ][x]
-        mock_argv.__len__.return_value = 4
+            "--no-cache",
+        ]
 
         # Setup user config
         mock_user_config = MagicMock()
@@ -77,15 +78,17 @@ class TestCLIIntegration:
         # Setup HTTP session
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json.return_value = {
-            "choices": [
-                {
-                    "message": {
-                        "content": "This video discusses the latest technology developments and thanks viewers for watching."
+        mock_response.json = AsyncMock(
+            return_value={
+                "choices": [
+                    {
+                        "message": {
+                            "content": "This video discusses the latest technology developments and thanks viewers for watching."
+                        }
                     }
-                }
-            ]
-        }
+                ]
+            }
+        )
 
         mock_session_instance = MagicMock()
         mock_session_instance.post.return_value.__aenter__.return_value = mock_response
@@ -117,13 +120,13 @@ class TestCLIIntegration:
         """Test CLI with direct text input."""
         # Setup CLI arguments
         long_text = "This is a very long piece of text that needs to be summarized using the CLI interface."
-        mock_argv.__getitem__.side_effect = lambda x: [
+        sys.argv = [
             "tldwatch",
             long_text,
             "--temperature",
             "0.5",
-        ][x]
-        mock_argv.__len__.return_value = 3
+            "--no-cache",
+        ]
 
         # Setup user config
         mock_user_config = MagicMock()
@@ -138,15 +141,17 @@ class TestCLIIntegration:
         # Setup HTTP session
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json.return_value = {
-            "choices": [
-                {
-                    "message": {
-                        "content": "This text discusses the need for summarization via CLI."
+        mock_response.json = AsyncMock(
+            return_value={
+                "choices": [
+                    {
+                        "message": {
+                            "content": "This text discusses the need for summarization via CLI."
+                        }
                     }
-                }
-            ]
-        }
+                ]
+            }
+        )
 
         mock_session_instance = MagicMock()
         mock_session_instance.post.return_value.__aenter__.return_value = mock_response
@@ -168,18 +173,15 @@ class TestCLIIntegration:
     ):
         """Test CLI config creation command."""
         # Setup CLI arguments
-        mock_argv.__getitem__.side_effect = lambda x: ["tldwatch", "--create-config"][x]
-        mock_argv.__len__.return_value = 2
+        sys.argv = ["tldwatch", "--create-config"]
 
         # Setup user config
         mock_user_config = MagicMock()
         mock_get_user_config.return_value = mock_user_config
 
         with patch("tldwatch.cli.main.console") as mock_console:
-            with pytest.raises(SystemExit) as exc_info:
-                await main()
+            await main()
 
-        assert exc_info.value.code == 0
         mock_user_config.create_example_config.assert_called_once()
         mock_console.print.assert_called()
 
@@ -190,8 +192,7 @@ class TestCLIIntegration:
     ):
         """Test CLI show config command."""
         # Setup CLI arguments
-        mock_argv.__getitem__.side_effect = lambda x: ["tldwatch", "--show-config"][x]
-        mock_argv.__len__.return_value = 2
+        sys.argv = ["tldwatch", "--show-config"]
 
         # Setup user config
         mock_user_config = MagicMock()
@@ -203,10 +204,8 @@ class TestCLIIntegration:
         mock_get_user_config.return_value = mock_user_config
 
         with patch("tldwatch.cli.main.console") as mock_console:
-            with pytest.raises(SystemExit) as exc_info:
-                await main()
+            await main()
 
-        assert exc_info.value.code == 0
         mock_console.print.assert_called()
 
     @patch("sys.argv")
@@ -214,10 +213,7 @@ class TestCLIIntegration:
     async def test_cli_list_providers(self, mock_summarizer_class, mock_argv):
         """Test CLI list providers command."""
         # Setup CLI arguments
-        mock_argv.__getitem__.side_effect = lambda x: ["tldwatch", "--list-providers"][
-            x
-        ]
-        mock_argv.__len__.return_value = 2
+        sys.argv = ["tldwatch", "--list-providers"]
 
         # Setup summarizer class
         mock_summarizer_class.list_providers.return_value = [
@@ -227,10 +223,8 @@ class TestCLIIntegration:
         ]
 
         with patch("tldwatch.cli.main.console") as mock_console:
-            with pytest.raises(SystemExit) as exc_info:
-                await main()
+            await main()
 
-        assert exc_info.value.code == 0
         mock_console.print.assert_called()
 
     @patch("sys.argv")
@@ -250,13 +244,14 @@ class TestCLIIntegration:
         output_file = Path(cli_temp_dirs["cache_dir"]) / "output.txt"
 
         # Setup CLI arguments
-        mock_argv.__getitem__.side_effect = lambda x: [
+        output_file = Path(cli_temp_dirs["cache_dir"]) / "output.txt"
+        sys.argv = [
             "tldwatch",
             "dQw4w9WgXcQ",
             "--output",
             str(output_file),
-        ][x]
-        mock_argv.__len__.return_value = 4
+            "--no-cache",
+        ]
 
         # Setup user config
         mock_user_config = MagicMock()
@@ -276,11 +271,13 @@ class TestCLIIntegration:
         # Setup HTTP session
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json.return_value = {
-            "choices": [
-                {"message": {"content": "Generated summary for file output test."}}
-            ]
-        }
+        mock_response.json = AsyncMock(
+            return_value={
+                "choices": [
+                    {"message": {"content": "Generated summary for file output test."}}
+                ]
+            }
+        )
 
         mock_session_instance = MagicMock()
         mock_session_instance.post.return_value.__aenter__.return_value = mock_response
@@ -293,7 +290,7 @@ class TestCLIIntegration:
             await main()
 
         # Verify file was opened for writing
-        mock_open.assert_called_once_with(str(output_file), "w")
+        mock_open.assert_called_once_with(str(output_file), "w", encoding="utf-8")
 
         # Verify content was written
         mock_file.write.assert_called_once_with(
@@ -313,12 +310,11 @@ class TestCLIIntegration:
     ):
         """Test CLI cache-related options."""
         # Setup CLI arguments for no-cache
-        mock_argv.__getitem__.side_effect = lambda x: [
+        sys.argv = [
             "tldwatch",
             "dQw4w9WgXcQ",
             "--no-cache",
-        ][x]
-        mock_argv.__len__.return_value = 3
+        ]
 
         # Setup user config
         mock_user_config = MagicMock()
@@ -338,9 +334,11 @@ class TestCLIIntegration:
         with patch("aiohttp.ClientSession") as mock_session:
             mock_response = MagicMock()
             mock_response.status = 200
-            mock_response.json.return_value = {
-                "choices": [{"message": {"content": "Summary with no cache"}}]
-            }
+            mock_response.json = AsyncMock(
+                return_value={
+                    "choices": [{"message": {"content": "Summary with no cache"}}]
+                }
+            )
 
             mock_session_instance = MagicMock()
             mock_session_instance.post.return_value.__aenter__.return_value = (
@@ -356,7 +354,7 @@ class TestCLIIntegration:
 
     @patch("sys.argv")
     @patch("tldwatch.cli.main.get_user_config")
-    @patch("tldwatch.cli.main.get_cache")
+    @patch("tldwatch.utils.cache.get_cache")
     @patch("youtube_transcript_api.YouTubeTranscriptApi.get_transcript")
     async def test_cli_force_regenerate(
         self,
@@ -369,12 +367,11 @@ class TestCLIIntegration:
     ):
         """Test CLI force regenerate option."""
         # Setup CLI arguments
-        mock_argv.__getitem__.side_effect = lambda x: [
+        sys.argv = [
             "tldwatch",
             "dQw4w9WgXcQ",
             "--force-regenerate",
-        ][x]
-        mock_argv.__len__.return_value = 3
+        ]
 
         # Setup user config
         mock_user_config = MagicMock()
@@ -398,9 +395,11 @@ class TestCLIIntegration:
         with patch("aiohttp.ClientSession") as mock_session:
             mock_response = MagicMock()
             mock_response.status = 200
-            mock_response.json.return_value = {
-                "choices": [{"message": {"content": "Regenerated summary"}}]
-            }
+            mock_response.json = AsyncMock(
+                return_value={
+                    "choices": [{"message": {"content": "Regenerated summary"}}]
+                }
+            )
 
             mock_session_instance = MagicMock()
             mock_session_instance.post.return_value.__aenter__.return_value = (
@@ -408,22 +407,25 @@ class TestCLIIntegration:
             )
             mock_session.return_value.__aenter__.return_value = mock_session_instance
 
-            with patch("tldwatch.cli.main.console"):
+            with (
+                patch("tldwatch.cli.main.console"),
+                patch("tldwatch.utils.cache.clear_cache") as mock_clear_cache,
+            ):
                 await main()
 
         # Verify cache was cleared for the video
-        mock_cache.clear_video_cache.assert_called_once_with("dQw4w9WgXcQ")
+        mock_clear_cache.assert_called_once_with(
+            video_id="dQw4w9WgXcQ", cache_dir=cli_temp_dirs["cache_dir"]
+        )
 
-    @patch("sys.argv")
     @patch("tldwatch.cli.main.Summarizer")
-    async def test_cli_error_handling(self, mock_summarizer_class, mock_argv):
+    async def test_cli_error_handling(self, mock_summarizer_class):
         """Test CLI error handling."""
         # Setup CLI arguments
-        mock_argv.__getitem__.side_effect = lambda x: [
+        sys.argv = [
             "tldwatch",
             "test text for error",
-        ][x]
-        mock_argv.__len__.return_value = 2
+        ]
 
         # Setup summarizer to raise an error
         mock_summarizer = MagicMock()

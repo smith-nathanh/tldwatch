@@ -160,10 +160,9 @@ class TestMainFunction:
         with patch("tldwatch.cli.main.Summarizer") as mock_summarizer_class:
             mock_summarizer_class.list_providers.return_value = ["openai", "anthropic"]
 
-            with pytest.raises(SystemExit) as exc_info:
-                await main()
-
-            assert exc_info.value.code == 0
+            # Function should return without raising SystemExit
+            result = await main()
+            assert result is None
             mock_console.print.assert_called()
 
     @patch("tldwatch.cli.main.console")
@@ -174,10 +173,8 @@ class TestMainFunction:
         with patch("tldwatch.cli.main.Summarizer") as mock_summarizer_class:
             mock_summarizer_class.list_providers.return_value = ["openai", "anthropic"]
 
-            with pytest.raises(SystemExit) as exc_info:
-                await main()
-
-            assert exc_info.value.code == 0
+            result = await main()
+            assert result is None
             mock_console.print.assert_called()
 
     @patch("tldwatch.cli.main.console")
@@ -189,10 +186,8 @@ class TestMainFunction:
         mock_config = MagicMock()
         mock_get_user_config.return_value = mock_config
 
-        with pytest.raises(SystemExit) as exc_info:
-            await main()
-
-        assert exc_info.value.code == 0
+        result = await main()
+        assert result is None
         mock_config.create_example_config.assert_called_once()
 
     @patch("tldwatch.cli.main.console")
@@ -208,10 +203,8 @@ class TestMainFunction:
         }
         mock_get_user_config.return_value = mock_config
 
-        with pytest.raises(SystemExit) as exc_info:
-            await main()
-
-        assert exc_info.value.code == 0
+        result = await main()
+        assert result is None
         mock_console.print.assert_called()
 
     @patch("tldwatch.cli.main.Summarizer")
@@ -231,11 +224,27 @@ class TestMainFunction:
 
         mock_summarizer.summarize.assert_called_once()
         call_args = mock_summarizer.summarize.call_args
-        assert "This is a long text" in call_args[0][0]
+        # Check that video_input keyword argument contains the expected text
+        assert (
+            call_args.kwargs["video_input"]
+            == "This is a long text that needs to be summarized for testing purposes."
+        )
 
     @patch("tldwatch.cli.main.Summarizer")
     async def test_main_summarize_with_options(self, mock_summarizer_class):
         """Test summarization with custom options."""
+        # Set up the mock before main() is called
+        mock_summarizer_class.list_providers.return_value = [
+            "openai",
+            "anthropic",
+            "claude",
+        ]
+        mock_summarizer_class.list_chunking_strategies.return_value = [
+            "none",
+            "standard",
+            "large",
+        ]
+
         sys.argv = [
             "tldwatch",
             "https://youtube.com/watch?v=dQw4w9WgXcQ",
@@ -285,7 +294,7 @@ class TestMainFunction:
 
             await main()
 
-        mock_open.assert_called_once_with("/tmp/test_output.txt", "w")
+        mock_open.assert_called_once_with("/tmp/test_output.txt", "w", encoding="utf-8")
         mock_file.write.assert_called_once_with("Generated summary")
 
     @patch("tldwatch.cli.main.Summarizer")
@@ -313,7 +322,7 @@ class TestMainFunction:
             with pytest.raises(SystemExit) as exc_info:
                 await main()
 
-        assert exc_info.value.code == 2  # argparse error
+        assert exc_info.value.code == 1  # no input error
 
     @patch("tldwatch.cli.main.Summarizer")
     async def test_main_cache_options(self, mock_summarizer_class):
@@ -342,12 +351,16 @@ class TestMainFunction:
 
         with (
             patch("tldwatch.cli.main.console"),
-            patch("tldwatch.cli.main.get_cache") as mock_get_cache,
+            patch("tldwatch.utils.cache.clear_cache") as mock_clear_cache,
+            patch("tldwatch.cli.main.get_user_config") as mock_get_user_config,
         ):
-            mock_cache = MagicMock()
-            mock_get_cache.return_value = mock_cache
+            mock_user_config = MagicMock()
+            mock_user_config.get_cache_dir.return_value = "/tmp/cache"
+            mock_get_user_config.return_value = mock_user_config
 
             await main()
 
         # Should clear cache for the video before summarizing
-        mock_cache.clear_video_cache.assert_called_once_with("dQw4w9WgXcQ")
+        mock_clear_cache.assert_called_once_with(
+            video_id="dQw4w9WgXcQ", cache_dir="/tmp/cache"
+        )

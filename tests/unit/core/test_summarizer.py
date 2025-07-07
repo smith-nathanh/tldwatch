@@ -1,6 +1,19 @@
 """
 Unit tests for the main Summarizer class.
-Tests the core summarization functionality with various inputs and configurations.
+Tests the core summarization functionality with various inputs and     @patch("tldwatch.core.user_config.get_user_config")
+    @patch("tldwatch.utils.cache.get_cache")
+    @patch("tldwatch.core.summarizer.UnifiedProvider")
+    @patch("tldwatch.core.summarizer.YouTubeTranscriptApi.get_transcript")
+    async def test_summarize_youtube_url(
+        self,
+        mock_get_transcript,
+        mock_provider_class,
+        mock_get_cache,
+        mock_get_user_config,
+        mock_user_config,
+        mock_cache,
+        mock_unified_provider,
+    ):.
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -47,8 +60,8 @@ class TestSummarizer:
         summarizer = Summarizer()
         assert summarizer is not None
 
-    @patch("tldwatch.core.summarizer.get_user_config")
-    @patch("tldwatch.core.summarizer.get_cache")
+    @patch("tldwatch.core.user_config.get_user_config")
+    @patch("tldwatch.utils.cache.get_cache")
     @patch("tldwatch.core.summarizer.UnifiedProvider")
     async def test_summarize_direct_text(
         self,
@@ -74,8 +87,8 @@ class TestSummarizer:
         assert result == "Generated summary"
         mock_unified_provider.generate_summary.assert_called_once_with(text)
 
-    @patch("tldwatch.core.summarizer.get_user_config")
-    @patch("tldwatch.core.summarizer.get_cache")
+    @patch("tldwatch.core.user_config.get_user_config")
+    @patch("tldwatch.utils.cache.get_cache")
     @patch("tldwatch.core.summarizer.UnifiedProvider")
     @patch("tldwatch.core.summarizer.YouTubeTranscriptApi.get_transcript")
     async def test_summarize_youtube_url(
@@ -111,8 +124,8 @@ class TestSummarizer:
         expected_text = "Hello world This is a test"
         mock_unified_provider.generate_summary.assert_called_once_with(expected_text)
 
-    @patch("tldwatch.core.summarizer.get_user_config")
-    @patch("tldwatch.core.summarizer.get_cache")
+    @patch("tldwatch.core.user_config.get_user_config")
+    @patch("tldwatch.utils.cache.get_cache")
     @patch("tldwatch.core.summarizer.UnifiedProvider")
     @patch("tldwatch.core.summarizer.YouTubeTranscriptApi.get_transcript")
     async def test_summarize_video_id(
@@ -142,8 +155,8 @@ class TestSummarizer:
         assert result == "Generated summary"
         mock_get_transcript.assert_called_once_with(video_id)
 
-    @patch("tldwatch.core.summarizer.get_user_config")
-    @patch("tldwatch.core.summarizer.get_cache")
+    @patch("tldwatch.core.user_config.get_user_config")
+    @patch("tldwatch.utils.cache.get_cache")
     @patch("tldwatch.core.summarizer.UnifiedProvider")
     async def test_summarize_with_cached_summary(
         self,
@@ -178,8 +191,8 @@ class TestSummarizer:
         assert result == "Cached summary"
         mock_unified_provider.generate_summary.assert_not_called()
 
-    @patch("tldwatch.core.summarizer.get_user_config")
-    @patch("tldwatch.core.summarizer.get_cache")
+    @patch("tldwatch.core.user_config.get_user_config")
+    @patch("tldwatch.utils.cache.get_cache")
     @patch("tldwatch.core.summarizer.UnifiedProvider")
     @patch("tldwatch.core.summarizer.YouTubeTranscriptApi.get_transcript")
     async def test_summarize_with_cache_disabled(
@@ -211,8 +224,8 @@ class TestSummarizer:
         # Cache should not be checked or called
         mock_get_cache.assert_not_called()
 
-    @patch("tldwatch.core.summarizer.get_user_config")
-    @patch("tldwatch.core.summarizer.get_cache")
+    @patch("tldwatch.core.user_config.get_user_config")
+    @patch("tldwatch.utils.cache.get_cache")
     @patch("tldwatch.core.summarizer.UnifiedProvider")
     async def test_summarize_with_provider_params(
         self,
@@ -257,9 +270,13 @@ class TestSummarizer:
         with pytest.raises(ValueError, match="Input text is too short"):
             await summarizer.summarize("short")
 
+    @patch("tldwatch.core.summarizer.is_youtube_url")
     @patch("tldwatch.core.summarizer.extract_video_id")
-    async def test_summarize_invalid_youtube_url(self, mock_extract_video_id):
+    async def test_summarize_invalid_youtube_url(
+        self, mock_extract_video_id, mock_is_youtube_url
+    ):
         """Test that invalid YouTube URLs raise ValueError."""
+        mock_is_youtube_url.return_value = True  # Make it think it's a YouTube URL
         mock_extract_video_id.return_value = None
 
         summarizer = Summarizer()
@@ -267,8 +284,8 @@ class TestSummarizer:
         with pytest.raises(ValueError, match="Could not extract video ID from URL"):
             await summarizer.summarize("https://www.youtube.com/invalid")
 
-    @patch("tldwatch.core.summarizer.get_user_config")
-    @patch("tldwatch.core.summarizer.get_cache")
+    @patch("tldwatch.core.user_config.get_user_config")
+    @patch("tldwatch.utils.cache.get_cache")
     @patch("tldwatch.core.summarizer.UnifiedProvider")
     @patch("tldwatch.core.summarizer.YouTubeTranscriptApi.get_transcript")
     async def test_transcript_caching(
@@ -305,8 +322,8 @@ class TestSummarizer:
         assert call_args[1]["video_id"] == video_id
         assert "Transcript content" in call_args[1]["transcript"]
 
-    @patch("tldwatch.core.summarizer.get_user_config")
-    @patch("tldwatch.core.summarizer.get_cache")
+    @patch("tldwatch.core.user_config.get_user_config")
+    @patch("tldwatch.utils.cache.get_cache")
     @patch("tldwatch.core.summarizer.UnifiedProvider")
     async def test_use_cached_transcript(
         self,
@@ -317,14 +334,11 @@ class TestSummarizer:
         mock_unified_provider,
     ):
         """Test that cached transcripts are used when available."""
-        # Setup cached transcript
-        mock_cached_transcript = MagicMock()
-        mock_cached_transcript.transcript = "Cached transcript content"
-
+        # Setup cached transcript (return the string directly)
         mock_cache = MagicMock()
         mock_cache.has_cached_summary.return_value = False
         mock_cache.has_cached_transcript.return_value = True
-        mock_cache.get_cached_transcript.return_value = mock_cached_transcript
+        mock_cache.get_cached_transcript.return_value = "Cached transcript content"
 
         mock_get_user_config.return_value = mock_user_config
         mock_get_cache.return_value = mock_cache
@@ -341,8 +355,8 @@ class TestSummarizer:
             "Cached transcript content"
         )
 
-    @patch("tldwatch.core.summarizer.get_user_config")
-    @patch("tldwatch.core.summarizer.get_cache")
+    @patch("tldwatch.core.user_config.get_user_config")
+    @patch("tldwatch.utils.cache.get_cache")
     @patch("tldwatch.core.summarizer.UnifiedProvider")
     @patch("tldwatch.core.summarizer.YouTubeTranscriptApi.get_transcript")
     async def test_summary_caching(

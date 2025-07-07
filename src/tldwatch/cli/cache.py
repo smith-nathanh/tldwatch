@@ -23,27 +23,29 @@ def cmd_list_cache(args) -> None:
 
     print(f"Found {len(cached_videos)} cached videos:")
     for video_id in cached_videos:
-        has_summary = cache.has_cached_summary(video_id)
         has_transcript = cache.has_cached_transcript(video_id)
+        all_summaries = cache.get_all_cached_summaries(video_id)
 
         cache_types = []
-        if has_summary:
-            cache_types.append("summary")
+        if all_summaries:
+            cache_types.append(f"{len(all_summaries)} summaries")
         if has_transcript:
             cache_types.append("transcript")
 
         cache_info = f"({', '.join(cache_types)})"
 
-        if has_summary:
-            entry = cache.get_cached_summary(video_id)
-            if entry:
+        if all_summaries:
+            # Show the most recent summary
+            latest_entry = all_summaries[0]  # Already sorted by timestamp desc
+            print(
+                f"  {video_id} - {latest_entry.provider}/{latest_entry.model} - {latest_entry.chunking_strategy} {cache_info}"
+            )
+            if latest_entry.video_metadata and latest_entry.video_metadata.get("title"):
+                print(f"    Title: {latest_entry.video_metadata['title']}")
+            if len(all_summaries) > 1:
                 print(
-                    f"  {video_id} - {entry.provider}/{entry.model} - {entry.chunking_strategy} {cache_info}"
+                    f"    Note: {len(all_summaries) - 1} additional summaries available"
                 )
-                if entry.video_metadata and entry.video_metadata.get("title"):
-                    print(f"    Title: {entry.video_metadata['title']}")
-            else:
-                print(f"  {video_id} - (error reading summary cache) {cache_info}")
         else:
             print(f"  {video_id} - {cache_info}")
 
@@ -97,32 +99,36 @@ def cmd_show_cache_entry(args) -> None:
     user_config = get_user_config()
     cache = get_cache(user_config.get_cache_dir())
 
-    entry = cache.get_cached_summary(args.video_id)
+    all_summaries = cache.get_all_cached_summaries(args.video_id)
     transcript = cache.get_cached_transcript(args.video_id)
 
-    if not entry and not transcript:
+    if not all_summaries and not transcript:
         print(f"No cached entries found for video {args.video_id}")
         return
 
     print(f"Cache Entry for {args.video_id}:")
 
-    if entry:
-        print("  Summary Cache:")
-        print(f"    Provider: {entry.provider}")
-        print(f"    Model: {entry.model}")
-        print(f"    Chunking Strategy: {entry.chunking_strategy}")
-        print(f"    Temperature: {entry.temperature}")
-        print(f"    Cached: {entry.timestamp}")
+    if all_summaries:
+        print(f"  Summary Cache ({len(all_summaries)} entries):")
+        for i, entry in enumerate(all_summaries):
+            print(f"    Entry {i + 1}:")
+            print(f"      Provider: {entry.provider}")
+            print(f"      Model: {entry.model}")
+            print(f"      Chunking Strategy: {entry.chunking_strategy}")
+            print(f"      Temperature: {entry.temperature}")
+            print(f"      Cached: {entry.timestamp}")
 
-        if entry.video_metadata:
-            print("    Video Metadata:")
-            for key, value in entry.video_metadata.items():
-                if key != "html":  # Skip HTML content as it's verbose
-                    print(f"      {key}: {value}")
+            if (
+                entry.video_metadata and i == 0
+            ):  # Only show metadata once for the latest entry
+                print("      Video Metadata:")
+                for key, value in entry.video_metadata.items():
+                    if key != "html":  # Skip HTML content as it's verbose
+                        print(f"        {key}: {value}")
 
-        if args.show_summary:
-            print("\n  Summary:")
-            print(f"    {entry.summary}")
+        if args.show_summary and all_summaries:
+            print("\n  Latest Summary:")
+            print(f"    {all_summaries[0].summary}")
     else:
         print("  Summary Cache: Not found")
 

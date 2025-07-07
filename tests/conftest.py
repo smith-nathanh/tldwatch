@@ -46,7 +46,7 @@ def mock_config(request):
         "groq": "mixtral-8x7b-32768",
         "cerebras": "llama3.1-8b",
         "ollama": "llama3.1:8b",
-        "google": "gemini-1.5-flash",
+        "google": "gemini-2.5-flash",
     }
 
     provider = request.param if hasattr(request, "param") else "openai"

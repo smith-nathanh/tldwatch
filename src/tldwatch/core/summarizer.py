@@ -101,7 +101,13 @@ class Summarizer:
                 chunking_strategy=unified_provider.chunking_strategy.value,
                 temperature=unified_provider.temperature,
             ):
-                cached_entry = cache.get_cached_summary(video_id)
+                cached_entry = cache.get_cached_summary(
+                    video_id=video_id,
+                    provider=unified_provider.config.name,
+                    model=unified_provider.model,
+                    chunking_strategy=unified_provider.chunking_strategy.value,
+                    temperature=unified_provider.temperature,
+                )
                 if cached_entry:
                     logger.info(
                         f"Using cached summary for {video_id} "

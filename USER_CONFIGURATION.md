@@ -53,7 +53,7 @@ The first file found will be used. If no configuration file exists, TLDWatch use
       "temperature": 0.5
     },
     "google": {
-      "default_model": "gemini-1.5-flash"
+      "default_model": "gemini-2.5-flash"
     },
     "groq": {
       "default_model": "llama-3.1-8b-instant"
@@ -96,7 +96,7 @@ providers:
     default_model: claude-3-5-sonnet-20241022
     temperature: 0.5
   google:
-    default_model: gemini-1.5-flash
+    default_model: gemini-2.5-flash
   groq:
     default_model: llama-3.1-8b-instant
 ```
@@ -172,8 +172,8 @@ For each provider, you can specify:
 - `claude-3-opus-20240229` (most capable, slower)
 
 **Google:**
-- `gemini-1.5-pro` (most capable)
-- `gemini-1.5-flash` (default, fast)
+- `gemini-2.5-pro` (most capable)
+- `gemini-2.5-flash` (default, fast)
 - `gemini-1.0-pro`
 
 **Groq:**

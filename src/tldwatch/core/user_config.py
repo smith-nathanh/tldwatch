@@ -124,7 +124,7 @@ class UserConfig:
                     "default_model": "claude-3-5-sonnet-20241022",
                     "temperature": 0.5,
                 },
-                "google": {"default_model": "gemini-1.5-flash"},
+                "google": {"default_model": "gemini-2.5-flash"},
                 "groq": {"default_model": "llama-3.1-8b-instant"},
                 "deepseek": {"default_model": "deepseek-chat"},
                 "cerebras": {"default_model": "llama3.1-8b"},

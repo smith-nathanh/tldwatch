@@ -61,8 +61,8 @@ class SummaryCache:
 
     Cache structure:
     - Default location: ~/.cache/tldwatch/summaries/
-    - Each video gets its own JSON file: {video_id}_cache.json
-    - Files contain summary, generation metadata, and video metadata
+    - Each video gets its own JSON file: {video_id}_summary.json
+    - Files contain a list of summaries with generation metadata and video metadata
     - Transcripts are cached separately: {video_id}_transcript.json
     """
 
@@ -84,7 +84,7 @@ class SummaryCache:
 
     def _get_cache_file(self, video_id: str) -> Path:
         """Get the cache file path for a video ID"""
-        return self.cache_dir / f"{video_id}_cache.json"
+        return self.cache_dir / f"{video_id}_summary.json"
 
     def _get_transcript_cache_file(self, video_id: str) -> Path:
         """Get the transcript cache file path for a video ID"""
@@ -186,43 +186,83 @@ class SummaryCache:
         if not cache_file.exists():
             return False
 
-        # If no specific parameters requested, just check if any cache exists
-        if all(
-            param is None for param in [provider, model, chunking_strategy, temperature]
-        ):
-            return True
-
         try:
             with open(cache_file, "r", encoding="utf-8") as f:
                 cache_data = json.load(f)
 
-            entry = CacheEntry.from_dict(cache_data)
+            # Handle both old format (single entry) and new format (list of entries)
+            if isinstance(cache_data, dict):
+                # Old format - single entry
+                entries = [cache_data]
+            elif isinstance(cache_data, list):
+                # New format - list of entries
+                entries = cache_data
+            else:
+                logger.warning(f"Invalid cache format for {video_id}")
+                return False
 
-            # Check parameter matches
-            if provider and entry.provider != provider:
-                return False
-            if model and entry.model != model:
-                return False
-            if chunking_strategy and entry.chunking_strategy != chunking_strategy:
-                return False
-            if temperature is not None and abs(entry.temperature - temperature) > 0.01:
-                return False
+            # If no specific parameters requested, just check if any cache exists
+            if all(
+                param is None
+                for param in [provider, model, chunking_strategy, temperature]
+            ):
+                return len(entries) > 0
 
-            return True
+            # Check if any entry matches the specified parameters
+            for entry_data in entries:
+                try:
+                    entry = CacheEntry.from_dict(entry_data)
+
+                    # Check parameter matches
+                    matches = True
+                    if provider and entry.provider != provider:
+                        matches = False
+                    if model and entry.model != model:
+                        matches = False
+                    if (
+                        chunking_strategy
+                        and entry.chunking_strategy != chunking_strategy
+                    ):
+                        matches = False
+                    if (
+                        temperature is not None
+                        and abs(entry.temperature - temperature) > 0.01
+                    ):
+                        matches = False
+
+                    if matches:
+                        return True
+                except Exception as e:
+                    logger.warning(f"Error parsing cache entry for {video_id}: {e}")
+                    continue
+
+            return False
 
         except Exception as e:
             logger.warning(f"Error reading cache for {video_id}: {e}")
             return False
 
-    def get_cached_summary(self, video_id: str) -> Optional[CacheEntry]:
+    def get_cached_summary(
+        self,
+        video_id: str,
+        provider: str = None,
+        model: str = None,
+        chunking_strategy: str = None,
+        temperature: float = None,
+    ) -> Optional[CacheEntry]:
         """
-        Retrieve cached summary for a video.
+        Retrieve cached summary for a video, optionally matching specific parameters.
 
         Args:
             video_id: YouTube video ID
+            provider: Optional provider filter
+            model: Optional model filter
+            chunking_strategy: Optional chunking strategy filter
+            temperature: Optional temperature filter
 
         Returns:
-            CacheEntry if found, None otherwise
+            CacheEntry if found, None otherwise. If multiple entries match,
+            returns the most recent one.
         """
         cache_file = self._get_cache_file(video_id)
         if not cache_file.exists():
@@ -232,9 +272,62 @@ class SummaryCache:
             with open(cache_file, "r", encoding="utf-8") as f:
                 cache_data = json.load(f)
 
-            entry = CacheEntry.from_dict(cache_data)
+            # Handle both old format (single entry) and new format (list of entries)
+            if isinstance(cache_data, dict):
+                # Old format - single entry
+                entries = [cache_data]
+            elif isinstance(cache_data, list):
+                # New format - list of entries
+                entries = cache_data
+            else:
+                logger.warning(f"Invalid cache format for {video_id}")
+                return None
+
+            matching_entries = []
+
+            for entry_data in entries:
+                try:
+                    entry = CacheEntry.from_dict(entry_data)
+
+                    # If no specific parameters requested, consider all entries
+                    if all(
+                        param is None
+                        for param in [provider, model, chunking_strategy, temperature]
+                    ):
+                        matching_entries.append(entry)
+                        continue
+
+                    # Check parameter matches
+                    matches = True
+                    if provider and entry.provider != provider:
+                        matches = False
+                    if model and entry.model != model:
+                        matches = False
+                    if (
+                        chunking_strategy
+                        and entry.chunking_strategy != chunking_strategy
+                    ):
+                        matches = False
+                    if (
+                        temperature is not None
+                        and abs(entry.temperature - temperature) > 0.01
+                    ):
+                        matches = False
+
+                    if matches:
+                        matching_entries.append(entry)
+
+                except Exception as e:
+                    logger.warning(f"Error parsing cache entry for {video_id}: {e}")
+                    continue
+
+            if not matching_entries:
+                return None
+
+            # Return the most recent matching entry
+            most_recent = max(matching_entries, key=lambda e: e.timestamp)
             logger.debug(f"Retrieved cached summary for {video_id}")
-            return entry
+            return most_recent
 
         except Exception as e:
             logger.warning(f"Error reading cached summary for {video_id}: {e}")
@@ -251,7 +344,8 @@ class SummaryCache:
         video_metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
-        Cache a summary with generation metadata.
+        Cache a summary with generation metadata. Appends to existing summaries
+        instead of overwriting them.
 
         Args:
             video_id: YouTube video ID
@@ -274,13 +368,68 @@ class SummaryCache:
         )
 
         cache_file = self._get_cache_file(video_id)
+        existing_entries = []
 
+        # Load existing cache if it exists
+        if cache_file.exists():
+            try:
+                with open(cache_file, "r", encoding="utf-8") as f:
+                    cache_data = json.load(f)
+
+                # Handle both old format (single entry) and new format (list of entries)
+                if isinstance(cache_data, dict):
+                    # Old format - single entry, convert to list
+                    existing_entries = [cache_data]
+                elif isinstance(cache_data, list):
+                    # New format - list of entries
+                    existing_entries = cache_data
+                else:
+                    logger.warning(
+                        f"Invalid cache format for {video_id}, starting fresh"
+                    )
+                    existing_entries = []
+
+            except Exception as e:
+                logger.warning(f"Error reading existing cache for {video_id}: {e}")
+                existing_entries = []
+
+        # Check if we already have an identical entry (to avoid true duplicates)
+        new_entry_dict = cache_entry.to_dict()
+        for existing_entry in existing_entries:
+            try:
+                # Compare all parameters except timestamp
+                if (
+                    existing_entry.get("video_id") == new_entry_dict["video_id"]
+                    and existing_entry.get("provider") == new_entry_dict["provider"]
+                    and existing_entry.get("model") == new_entry_dict["model"]
+                    and existing_entry.get("chunking_strategy")
+                    == new_entry_dict["chunking_strategy"]
+                    and abs(
+                        existing_entry.get("temperature", 0)
+                        - new_entry_dict["temperature"]
+                    )
+                    < 0.01
+                    and existing_entry.get("summary") == new_entry_dict["summary"]
+                ):
+                    logger.info(
+                        f"Identical summary already cached for {video_id}, skipping"
+                    )
+                    return
+            except Exception as e:
+                logger.warning(f"Error comparing cache entries: {e}")
+                continue
+
+        # Append the new entry
+        existing_entries.append(new_entry_dict)
+
+        # Write the updated cache
         try:
             with open(cache_file, "w", encoding="utf-8") as f:
-                json.dump(cache_entry.to_dict(), f, indent=2, ensure_ascii=False)
+                json.dump(existing_entries, f, indent=2, ensure_ascii=False)
 
             logger.info(
-                f"Cached summary for {video_id} (provider={provider}, model={model})"
+                f"Cached summary for {video_id} (provider={provider}, model={model}) - "
+                f"total summaries: {len(existing_entries)}"
             )
 
         except Exception as e:
@@ -388,7 +537,8 @@ class SummaryCache:
 
     def cleanup_old_cache(self, max_age_days: int = 30) -> int:
         """
-        Remove cache entries older than specified days.
+        Remove cache entries older than specified days. For summary caches with
+        multiple entries, removes only old entries and keeps newer ones.
 
         Args:
             max_age_days: Maximum age in days for cache entries
@@ -406,11 +556,37 @@ class SummaryCache:
                     with open(cache_file, "r", encoding="utf-8") as f:
                         cache_data = json.load(f)
 
-                    timestamp = cache_data.get("timestamp", 0)
-                    if timestamp < cutoff_time:
-                        cache_file.unlink()
-                        removed_count += 1
-                        logger.debug(f"Removed old cache file: {cache_file}")
+                    # Handle both old format (single entry) and new format (list of entries)
+                    if isinstance(cache_data, dict):
+                        # Old format - single entry
+                        timestamp = cache_data.get("timestamp", 0)
+                        if timestamp < cutoff_time:
+                            cache_file.unlink()
+                            removed_count += 1
+                            logger.debug(f"Removed old cache file: {cache_file}")
+                    elif isinstance(cache_data, list):
+                        # New format - list of entries, filter out old ones
+                        updated_entries = []
+                        for entry in cache_data:
+                            timestamp = entry.get("timestamp", 0)
+                            if timestamp >= cutoff_time:
+                                updated_entries.append(entry)
+
+                        # If all entries are old, remove the entire file
+                        if not updated_entries:
+                            cache_file.unlink()
+                            removed_count += 1
+                            logger.debug(f"Removed old cache file: {cache_file}")
+                        # If some entries remain, update the file
+                        elif len(updated_entries) < len(cache_data):
+                            with open(cache_file, "w", encoding="utf-8") as f:
+                                json.dump(
+                                    updated_entries, f, indent=2, ensure_ascii=False
+                                )
+                            entries_removed = len(cache_data) - len(updated_entries)
+                            logger.debug(
+                                f"Removed {entries_removed} old entries from {cache_file}"
+                            )
 
                 except Exception as e:
                     logger.warning(f"Error checking cache file {cache_file}: {e}")
@@ -439,6 +615,56 @@ class SummaryCache:
             logger.info(f"Cleaned up {removed_count} old cache entries")
 
         return removed_count
+
+    def get_all_cached_summaries(self, video_id: str) -> List[CacheEntry]:
+        """
+        Retrieve all cached summaries for a video.
+
+        Args:
+            video_id: YouTube video ID
+
+        Returns:
+            List of CacheEntry objects, sorted by timestamp (newest first)
+        """
+        cache_file = self._get_cache_file(video_id)
+        if not cache_file.exists():
+            return []
+
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                cache_data = json.load(f)
+
+            # Handle both old format (single entry) and new format (list of entries)
+            if isinstance(cache_data, dict):
+                # Old format - single entry
+                entries = [cache_data]
+            elif isinstance(cache_data, list):
+                # New format - list of entries
+                entries = cache_data
+            else:
+                logger.warning(f"Invalid cache format for {video_id}")
+                return []
+
+            cache_entries = []
+            for entry_data in entries:
+                try:
+                    entry = CacheEntry.from_dict(entry_data)
+                    cache_entries.append(entry)
+                except Exception as e:
+                    logger.warning(f"Error parsing cache entry for {video_id}: {e}")
+                    continue
+
+            # Sort by timestamp, newest first
+            cache_entries.sort(key=lambda e: e.timestamp, reverse=True)
+
+            logger.debug(
+                f"Retrieved {len(cache_entries)} cached summaries for {video_id}"
+            )
+            return cache_entries
+
+        except Exception as e:
+            logger.warning(f"Error reading cached summaries for {video_id}: {e}")
+            return []
 
 
 # Global cache instance
@@ -514,3 +740,20 @@ def get_cached_transcript(
     """
     cache = get_cache(cache_dir)
     return cache.get_cached_transcript(video_id)
+
+
+def get_all_cached_summaries(
+    video_id: str, cache_dir: Optional[str] = None
+) -> List[CacheEntry]:
+    """
+    Convenience function to get all cached summaries for a video.
+
+    Args:
+        video_id: YouTube video ID
+        cache_dir: Optional custom cache directory
+
+    Returns:
+        List of CacheEntry objects, sorted by timestamp (newest first)
+    """
+    cache = get_cache(cache_dir)
+    return cache.get_all_cached_summaries(video_id)

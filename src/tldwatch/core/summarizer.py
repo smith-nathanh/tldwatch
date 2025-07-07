@@ -131,15 +131,23 @@ class Summarizer:
 
         # Cache the summary if enabled and this is a video
         if use_cache and video_id:
-            from ..utils.cache import get_cache
+            from ..utils.cache import get_cache, get_cached_video_metadata
+            from ..utils.metadata import fetch_video_metadata
 
             cache = get_cache(user_config.get_cache_dir())
 
-            # For now, cache without metadata (can be enhanced later)
-            video_metadata = {
-                "url": f"https://www.youtube.com/watch?v={video_id}",
-                "video_id": video_id,
-            }
+            # Try to get existing metadata from cache, or fetch new metadata
+            video_metadata = get_cached_video_metadata(
+                video_id, user_config.get_cache_dir()
+            )
+            if not video_metadata:
+                video_metadata = await fetch_video_metadata(video_id)
+                if not video_metadata:
+                    # Fallback to minimal metadata
+                    video_metadata = {
+                        "url": f"https://www.youtube.com/watch?v={video_id}",
+                        "video_id": video_id,
+                    }
 
             # Cache the summary
             cache.cache_summary(
@@ -234,15 +242,20 @@ class Summarizer:
             # Cache the transcript if caching is enabled
             if use_cache:
                 from ..utils.cache import get_cache
+                from ..utils.metadata import fetch_video_metadata
                 from .user_config import get_user_config
 
                 user_config = get_user_config()
                 cache = get_cache(user_config.get_cache_dir())
 
-                video_metadata = {
-                    "url": f"https://www.youtube.com/watch?v={video_id}",
-                    "video_id": video_id,
-                }
+                # Try to fetch video metadata
+                video_metadata = await fetch_video_metadata(video_id)
+                if not video_metadata:
+                    # Fallback to minimal metadata
+                    video_metadata = {
+                        "url": f"https://www.youtube.com/watch?v={video_id}",
+                        "video_id": video_id,
+                    }
 
                 cache.cache_transcript(
                     video_id=video_id,

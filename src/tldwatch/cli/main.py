@@ -22,6 +22,7 @@ from ..core.proxy_config import (
 )
 from ..core.summarizer import Summarizer
 from ..core.user_config import get_user_config
+from ..utils.url_parser import extract_video_id, is_youtube_url
 
 # Initialize rich console for pretty output
 console = Console()
@@ -334,7 +335,6 @@ Available chunking strategies: none, standard, small, large
         elif args.force_regenerate:
             # Clear cache for this video first (both summary and transcript), then allow caching
             from ..utils.cache import clear_cache
-            from ..utils.url_parser import extract_video_id, is_youtube_url
 
             user_config = get_user_config()
             video_id = None
@@ -362,6 +362,40 @@ Available chunking strategies: none, standard, small, large
                 use_cache=use_cache,
             )
 
+        # Get video title if it's a YouTube video
+        video_title = None
+        video_id = None
+        if is_youtube_url(args.input):
+            video_id = extract_video_id(args.input)
+        elif args.input and len(args.input) == 11:
+            video_id = args.input
+
+        if video_id:
+            try:
+                # First try to get from cache
+                from ..utils.cache import get_cached_video_metadata
+
+                user_config = get_user_config()
+                cached_metadata = get_cached_video_metadata(
+                    video_id, user_config.get_cache_dir()
+                )
+
+                if cached_metadata and cached_metadata.get("title"):
+                    video_title = cached_metadata["title"]
+                else:
+                    # If not in cache, fetch from YouTube's oembed API
+                    from ..utils.metadata import fetch_video_metadata
+
+                    metadata = await fetch_video_metadata(video_id)
+                    if metadata and metadata.get("title"):
+                        video_title = metadata["title"]
+                    else:
+                        video_title = "Unknown Title"
+            except Exception as e:
+                console.print(
+                    f"[yellow]Warning: Could not fetch video title: {str(e)}[/yellow]"
+                )
+
         # Output the summary
         if args.output:
             with open(args.output, "w", encoding="utf-8") as f:
@@ -370,10 +404,16 @@ Available chunking strategies: none, standard, small, large
         else:
             # Convert Markdown formatting to Rich markup for terminal display
             rich_summary = convert_markdown_to_rich(summary)
+
+            # Create panel title with video title if available
+            panel_title = "Summary"
+            if video_title:
+                panel_title = f"Summary: {video_title}"
+
             console.print(
                 Panel(
                     Text.from_markup(rich_summary),
-                    title="Summary",
+                    title=panel_title,
                     border_style="green",
                     expand=False,
                 )

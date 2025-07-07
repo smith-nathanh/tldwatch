@@ -666,6 +666,39 @@ class SummaryCache:
             logger.warning(f"Error reading cached summaries for {video_id}: {e}")
             return []
 
+    def get_cached_video_metadata(self, video_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve cached video metadata from either summary or transcript cache.
+
+        Args:
+            video_id: YouTube video ID
+
+        Returns:
+            Video metadata dictionary if found, None otherwise
+        """
+        # First try to get from summary cache
+        cached_summary = self.get_cached_summary(video_id)
+        if cached_summary and cached_summary.video_metadata:
+            return cached_summary.video_metadata
+
+        # Then try to get from transcript cache
+        transcript_file = self._get_transcript_cache_file(video_id)
+        if transcript_file.exists():
+            try:
+                with open(transcript_file, "r", encoding="utf-8") as f:
+                    transcript_data = json.load(f)
+
+                entry = TranscriptCacheEntry.from_dict(transcript_data)
+                if entry.video_metadata:
+                    return entry.video_metadata
+
+            except Exception as e:
+                logger.warning(
+                    f"Error reading transcript cache for metadata {video_id}: {e}"
+                )
+
+        return None
+
 
 # Global cache instance
 _cache_instance = None
@@ -757,3 +790,20 @@ def get_all_cached_summaries(
     """
     cache = get_cache(cache_dir)
     return cache.get_all_cached_summaries(video_id)
+
+
+def get_cached_video_metadata(
+    video_id: str, cache_dir: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Convenience function to get cached video metadata.
+
+    Args:
+        video_id: YouTube video ID
+        cache_dir: Optional custom cache directory
+
+    Returns:
+        Video metadata dictionary if found, None otherwise
+    """
+    cache = get_cache(cache_dir)
+    return cache.get_cached_video_metadata(video_id)

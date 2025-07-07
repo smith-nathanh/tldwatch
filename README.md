@@ -1,6 +1,9 @@
 # tldwatch
 
-A Python library for generating summaries of YouTube video transcripts (or any text) using the LLM provider of your choice.
+A Python library for generating summaries of YouTube video transcripts (or any text) using the LLM provider and model of your choice.
+
+![Terminal Output](assets/terminal-output.png)
+
 
 ## Features
 

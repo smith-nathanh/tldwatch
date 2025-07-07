@@ -7,6 +7,7 @@ import argparse
 import asyncio
 import logging
 import os
+import re
 import sys
 
 from rich.console import Console
@@ -24,6 +25,17 @@ from ..core.user_config import get_user_config
 
 # Initialize rich console for pretty output
 console = Console()
+
+
+def convert_markdown_to_rich(text: str) -> str:
+    """Convert Markdown formatting to Rich markup."""
+    # Convert **bold** to [bold]text[/bold]
+    text = re.sub(r"\*\*(.*?)\*\*", r"[bold]\1[/bold]", text)
+    # Convert *italic* to [italic]text[/italic]
+    text = re.sub(r"\*(.*?)\*", r"[italic]\1[/italic]", text)
+    # Convert _italic_ to [italic]text[/italic]
+    text = re.sub(r"_(.*?)_", r"[italic]\1[/italic]", text)
+    return text
 
 
 def setup_logging(verbose: bool = False):
@@ -356,9 +368,14 @@ Available chunking strategies: none, standard, small, large
                 f.write(summary)
             console.print(f"[green]Summary saved to:[/green] {args.output}")
         else:
+            # Convert Markdown formatting to Rich markup for terminal display
+            rich_summary = convert_markdown_to_rich(summary)
             console.print(
                 Panel(
-                    Text(summary), title="Summary", border_style="green", expand=False
+                    Text.from_markup(rich_summary),
+                    title="Summary",
+                    border_style="green",
+                    expand=False,
                 )
             )
 

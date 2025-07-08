@@ -59,6 +59,12 @@ After installation, activate the virtual environment and run the CLI:
 # Activate the virtual environment
 source .venv/bin/activate
 
+# Activate your API key(s)
+source .env
+ 
+# Alternative to .env file
+export OPENAI_API_KEY="your-key-here"
+
 # Now you can use the CLI directly
 tldwatch "https://www.youtube.com/watch?v=QAgR4uQ15rc"
 ```

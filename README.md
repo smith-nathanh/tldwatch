@@ -1,6 +1,8 @@
 # tldwatch
 
-A Python library for generating summaries of YouTube video transcripts (or any text) using the LLM provider and model of your choice.
+Too long; didn't watch? 
+
+Well, here's a Python library for generating summaries of YouTube video transcripts using the LLM provider and model of your choice.
 
 ![Terminal Output](assets/terminal-output.png)
 
@@ -24,13 +26,54 @@ A Python library for generating summaries of YouTube video transcripts (or any t
 
 ## Installation
 
+This project uses [uv](https://github.com/astral-sh/uv) for dependency management. 
+
+### Prerequisites
+
+First, install uv if you haven't already:
+
 ```bash
-pip install tldwatch
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Clone and Install
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/tldwatch.git
+cd tldwatch
+
+# Install the project with uv
+uv sync
+
+# Install in development mode with all dependencies
+uv sync --all-extras
+```
+
+### Running the CLI
+
+After installation, activate the virtual environment and run the CLI:
+
+```bash
+# Activate the virtual environment
+source .venv/bin/activate
+
+# Now you can use the CLI directly
+tldwatch "https://www.youtube.com/watch?v=QAgR4uQ15rc"
 ```
 
 ## Quick Start
 
 ### Command Line Usage
+
+Make sure to activate the virtual environment first:
+
+```bash
+source .venv/bin/activate
+```
+
+Then use the CLI:
 
 ```bash
 # Summarize using YouTube URL
@@ -53,6 +96,15 @@ tldwatch "QAgR4uQ15rc" --chunking large
 ```
 
 ### Python Library Usage
+
+To use the library in your Python code, first activate the virtual environment:
+
+```bash
+# Activate the virtual environment
+source .venv/bin/activate
+```
+
+Then use the library in your Python scripts:
 
 ```python
 import asyncio
@@ -98,6 +150,7 @@ export GROQ_API_KEY="your-key-here"
 export CEREBRAS_API_KEY="your-key-here"
 export DEEPSEEK_API_KEY="your-key-here"
 export ANTHROPIC_API_KEY="your-key-here"
+export GEMINI_API_KEY="your-key-here"
 
 # Optional, for YouTube metadata enrichment
 export YOUTUBE_API_KEY="your-key-here"
@@ -140,13 +193,13 @@ Each provider has default models, but you can specify alternatives:
 ```python
 # OpenAI
 summarizer = Summarizer()
-summary = await summarizer.summarize("video_id", provider="openai", model="gpt-4o")
+summary = await summarizer.summarize("video_id", provider="openai", model="gpt-4o-mini")
 
 # Anthropic
 summary = await summarizer.summarize("video_id", provider="anthropic", model="claude-3-5-sonnet-20241022")
 
 # Groq
-summary = await summarizer.summarize("video_id", provider="groq", model="mixtral-8x7b-32768")
+summary = await summarizer.summarize("video_id", provider="groq", model="llama-3.1-8b-instant")
 
 # Ollama (local)
 summary = await summarizer.summarize("video_id", provider="ollama", model="llama3.1:8b")
@@ -229,18 +282,47 @@ except Exception as e:
 
 ## Development
 
-Clone and set up for development:
+This project uses [uv](https://github.com/astral-sh/uv) for dependency management.
+
+### Setup Development Environment
 
 ```bash
+# Clone the repository
 git clone https://github.com/yourusername/tldwatch.git
 cd tldwatch
-pip install -e ".[dev]"
+
+# Install all dependencies including development tools
+uv sync --all-extras
+
+# Activate the virtual environment
+source .venv/bin/activate
 ```
 
-Run tests:
+### Running Tests
 
 ```bash
-pytest tests/
+# Run tests
+pytest
+
+# Run tests with coverage
+pytest --cov=src/tldwatch
+
+# Run specific test files
+pytest tests/unit/
+pytest tests/integration/
+```
+
+### Code Quality
+
+```bash
+# Run linting
+ruff check
+
+# Run type checking
+mypy src/
+
+# Format code
+black src/ tests/
 ```
 
 ## Contributing

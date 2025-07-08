@@ -49,7 +49,8 @@ async def main():
     summary3 = await summarizer.summarize(
         video_url,
         provider="openai",
-        model="gpt-3.5-turbo",  # Different model
+        model="gpt-4o-mini",  # Same model but different parameters
+        temperature=0.5,  # Different temperature
         use_cache=True,
     )
     print(f"Summary length: {len(summary3)} characters")

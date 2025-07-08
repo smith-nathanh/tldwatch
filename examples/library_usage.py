@@ -6,33 +6,33 @@ including different input methods, configuration options, and error handling.
 """
 
 import asyncio
-import os
 from pathlib import Path
 
-from tldwatch import Summarizer
+from tldwatch import Summarizer, summarize_video
 
 
 async def basic_usage():
     """Basic usage examples"""
     print("\n=== Basic Usage Examples ===")
 
-    # Initialize with defaults (OpenAI provider)
+    # Initialize with defaults
     summarizer = Summarizer()
 
-    # Get summary using video ID
-    summary = await summarizer.get_summary(video_id="QAgR4uQ15rc")
-    print("Summary from video ID:", summary)
+    # Summarize using video ID
+    print("Processing video ID...")
+    summary = await summarizer.summarize("QAgR4uQ15rc")
+    print(f"Summary from video ID: {summary[:200]}...")
 
-    # Get summary using URL
-    summary = await summarizer.get_summary(
-        url="https://www.youtube.com/watch?v=QAgR4uQ15rc"
-    )
-    print("Summary from URL:", summary)
+    # Summarize using URL
+    print("\nProcessing YouTube URL...")
+    summary = await summarizer.summarize("https://www.youtube.com/watch?v=QAgR4uQ15rc")
+    print(f"Summary from URL: {summary[:200]}...")
 
-    # Process direct transcript input
-    transcript = "This is a sample transcript that needs to be summarized..."
-    summary = await summarizer.get_summary(transcript_text=transcript)
-    print("Summary from direct transcript:", summary)
+    # Process direct text
+    print("\nProcessing direct text...")
+    text = "This is a sample text that needs to be summarized. It contains information about various topics and should be condensed into a shorter, more digestible format. The text is long enough to demonstrate the summarization capabilities."
+    summary = await summarizer.summarize(text)
+    print(f"Summary from direct text: {summary[:200]}...")
 
 
 async def provider_examples():
@@ -40,161 +40,145 @@ async def provider_examples():
     print("\n=== Provider Examples ===")
 
     # Using Groq
-    groq_summarizer = Summarizer(
-        provider="groq", model="mixtral-8x7b-32768", temperature=0.7
+    print("Using Groq provider...")
+    summary = await summarize_video(
+        "QAgR4uQ15rc", provider="groq", model="llama-3.1-8b-instant", temperature=0.7
     )
-    summary = await groq_summarizer.get_summary(video_id="QAgR4uQ15rc")
-    print("Groq Summary:", summary)
+    print(f"Groq Summary: {summary[:200]}...")
 
-    # Using OpenAI with gpt-4o
-    openai_summarizer = Summarizer(provider="openai", model="gpt-4o", temperature=0.5)
-    summary = await openai_summarizer.get_summary(video_id="QAgR4uQ15rc")
-    print("OpenAI Summary:", summary)
-
-    # Using local Ollama
-    ollama_summarizer = Summarizer(
-        provider="ollama", model="llama3.1:8b", temperature=0.7
+    # Using OpenAI with specific model
+    print("\nUsing OpenAI provider...")
+    summary = await summarize_video(
+        "QAgR4uQ15rc", provider="openai", model="gpt-4o-mini", temperature=0.5
     )
-    summary = await ollama_summarizer.get_summary(video_id="QAgR4uQ15rc")
-    print("Ollama Summary:", summary)
+    print(f"OpenAI Summary: {summary[:200]}...")
 
-
-async def advanced_configuration():
-    """Examples with advanced configuration"""
-    print("\n=== Advanced Configuration Examples ===")
-
-    # Using full context window
-    summarizer = Summarizer(
-        provider="groq",
-        model="mixtral-8x7b-32768",
-        use_full_context=True,
-        chunk_size=8000,  # Larger chunks
-        chunk_overlap=400,  # More overlap
-        temperature=0.8,
+    # Using Anthropic
+    print("\nUsing Anthropic provider...")
+    summary = await summarize_video(
+        "QAgR4uQ15rc",
+        provider="anthropic",
+        model="claude-3-5-sonnet-20241022",
+        temperature=0.3,
     )
+    print(f"Anthropic Summary: {summary[:200]}...")
 
-    summary = await summarizer.get_summary(video_id="QAgR4uQ15rc")
-    print("Full Context Summary:", summary)
+
+async def chunking_examples():
+    """Examples with different chunking strategies"""
+    print("\n=== Chunking Strategy Examples ===")
+
+    summarizer = Summarizer()
+
+    # No chunking (submit entire transcript)
+    print("Using 'none' chunking strategy...")
+    summary = await summarizer.summarize("QAgR4uQ15rc", chunking_strategy="none")
+    print(f"No chunking Summary: {summary[:200]}...")
+
+    # Large chunks for better context
+    print("\nUsing 'large' chunking strategy...")
+    summary = await summarizer.summarize("QAgR4uQ15rc", chunking_strategy="large")
+    print(f"Large chunks Summary: {summary[:200]}...")
+
+    # Small chunks for detailed processing
+    print("\nUsing 'small' chunking strategy...")
+    summary = await summarizer.summarize("QAgR4uQ15rc", chunking_strategy="small")
+    print(f"Small chunks Summary: {summary[:200]}...")
 
 
 async def batch_processing():
     """Example of batch processing multiple videos"""
     print("\n=== Batch Processing Example ===")
 
-    video_ids = ["QAgR4uQ15rc", "QkGwxtALTLU", "another_video_id"]
+    video_ids = ["QAgR4uQ15rc", "dQw4w9WgXcQ"]  # Using real video IDs
 
-    summarizer = Summarizer(provider="groq")
+    summarizer = Summarizer(provider="openai", model="gpt-4o-mini")
     output_dir = Path("summaries")
     output_dir.mkdir(exist_ok=True)
 
     for video_id in video_ids:
         try:
-            summary = await summarizer.get_summary(video_id=video_id)
+            print(f"Processing {video_id}...")
+            summary = await summarizer.summarize(video_id)
 
-            # Export to file
-            output_file = output_dir / f"{video_id}_summary.json"
-            summarizer.export_summary(str(output_file))
-            print(f"Processed {video_id}")
+            # Save to file
+            output_file = output_dir / f"{video_id}_summary.txt"
+            with open(output_file, "w", encoding="utf-8") as f:
+                f.write(summary)
+            print(f"Saved summary to {output_file}")
 
         except Exception as e:
             print(f"Error processing {video_id}: {str(e)}")
 
 
-async def error_handling():
-    """Example of proper error handling"""
-    print("\n=== Error Handling Example ===")
+async def cache_examples():
+    """Examples with caching"""
+    print("\n=== Caching Examples ===")
 
     summarizer = Summarizer()
 
+    # First call - will cache the result
+    print("First call (will cache)...")
+    summary1 = await summarizer.summarize("QAgR4uQ15rc", use_cache=True)
+    print(f"First summary: {summary1[:200]}...")
+
+    # Second call - will use cache
+    print("\nSecond call (will use cache)...")
+    summary2 = await summarizer.summarize("QAgR4uQ15rc", use_cache=True)
+    print(f"Second summary: {summary2[:200]}...")
+    print(f"Results identical: {summary1 == summary2}")
+
+    # Force regeneration
+    print("\nForced regeneration (bypass cache)...")
+    summary3 = await summarizer.summarize("QAgR4uQ15rc", use_cache=False)
+    print(f"Force regenerated: {summary3[:200]}...")
+
+
+async def error_handling():
+    """Example of error handling"""
+    print("\n=== Error Handling Examples ===")
+
+    summarizer = Summarizer()
+
+    # Handle invalid video ID
     try:
-        # Try with invalid video ID
-        summary = await summarizer.get_summary(video_id="invalid_video_id")
-    except ValueError as e:
-        print(f"Invalid input error: {str(e)}")
+        await summarizer.summarize("invalid_video_id")
     except Exception as e:
-        print(f"General error: {str(e)}")
+        print(f"Expected error for invalid video ID: {str(e)}")
 
+    # Handle short text
+    try:
+        await summarizer.summarize("short")
+    except ValueError as e:
+        print(f"Expected error for short text: {str(e)}")
 
-async def metadata_enrichment():
-    """Example using YouTube API for metadata enrichment"""
-    print("\n=== Metadata Enrichment Example ===")
-
-    # Initialize with YouTube API key
-    summarizer = Summarizer(youtube_api_key=os.environ.get("YOUTUBE_API_KEY"))
-
-    summary = await summarizer.get_summary(video_id="QAgR4uQ15rc")
-
-    # Export with metadata
-    summarizer.export_summary("summary_with_metadata.json")
-    print("Exported summary with metadata")
-
-
-async def custom_prompt_handling():
-    """Example of processing transcripts with specific context"""
-    print("\n=== Custom Prompt Handling Example ===")
-
-    # Read multiple transcripts
-    transcripts = [
-        "First transcript content...",
-        "Second transcript content...",
-        "Third transcript content...",
-    ]
-
-    summarizer = Summarizer(provider="openai")
-    summaries = []
-
-    for transcript in transcripts:
-        summary = await summarizer.get_summary(transcript_text=transcript)
-        summaries.append(summary)
-
-    # Combine summaries if needed
-    combined = "\n\n".join(summaries)
-    print("Processed multiple transcripts:", combined)
-
-
-def sync_wrapper():
-    """
-    Example of using the async API in synchronous code.
-    Useful when you can't use async/await directly.
-    """
-    print("\n=== Synchronous Usage Example ===")
-
-    def get_summary_sync(video_id: str) -> str:
-        """Synchronous wrapper for get_summary"""
-        summarizer = Summarizer()
-        return asyncio.run(summarizer.get_summary(video_id=video_id))
-
-    # Use synchronously
-    summary = get_summary_sync("QAgR4uQ15rc")
-    print("Sync Summary:", summary)
+    # Handle network issues gracefully
+    try:
+        # This might fail due to network issues
+        await summarizer.summarize("nonexistent_video_id")
+    except Exception as e:
+        print(f"Network/API error handled: {str(e)}")
 
 
 async def main():
     """Run all examples"""
-    # Basic examples
+    print("TLDWatch Library Usage Examples")
+    print("=" * 40)
+
     await basic_usage()
-
-    # Provider examples
     await provider_examples()
-
-    # Advanced configuration
-    await advanced_configuration()
-
-    # Batch processing
+    await chunking_examples()
     await batch_processing()
-
-    # Error handling
+    await cache_examples()
     await error_handling()
 
-    # Metadata enrichment
-    await metadata_enrichment()
-
-    # Custom prompt handling
-    await custom_prompt_handling()
-
-    # Synchronous usage
-    sync_wrapper()
+    print("\n=== All Examples Complete ===")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nProcess interrupted by user")
+    except Exception as e:
+        print(f"Process failed: {str(e)}")

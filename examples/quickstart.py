@@ -1,60 +1,49 @@
 """
-Quickstart example for tldwatch library usage.
-Shows the most common ways to use the library.
+Quickstart example for tldwatch - the simplest way to get started.
 """
 
 import asyncio
-import logging
+import os
 
-from tldwatch import Summarizer
-
-# Set up detailed logging
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+from tldwatch import Summarizer, summarize_video
 
 
 async def main():
+    """Quick start examples"""
+    print("TLDWatch Quickstart")
+    print("=" * 20)
+
+    # Check for API keys
+    if not (os.environ.get("OPENAI_API_KEY") or os.environ.get("GROQ_API_KEY")):
+        print("❌ Missing API key!")
+        print("Set one of these environment variables:")
+        print("  export OPENAI_API_KEY='your-key-here'")
+        print("  export GROQ_API_KEY='your-key-here'")
+        return
+
     try:
-        # Initialize summarizer
-        logger.info("Initializing summarizer")
-        summarizer = Summarizer(
-            provider="openai",
-            model="gpt-4o-mini",
-            use_full_context=False,
-            temperature=0.7,
-            chunk_size=5000,
-            chunk_overlap=200,
+        # Example 1: Convenience function (simplest)
+        print("\n1. Using convenience function:")
+        summary = await summarize_video("dQw4w9WgXcQ")
+        print(f"   {summary[:100]}...")
+
+        # Example 2: Summarizer class (more control)
+        print("\n2. Using Summarizer class:")
+        summarizer = Summarizer()
+        summary = await summarizer.summarize(
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            provider="openai" if os.environ.get("OPENAI_API_KEY") else "groq",
         )
-        logger.info("Summarizer initialized successfully")
+        print(f"   {summary[:100]}...")
 
-        # Summarize from YouTube video ID
-        video_id = "QAgR4uQ15rc"
-        logger.info(f"Starting summary process for video ID: {video_id}")
-
-        try:
-            summary = await summarizer.get_summary(video_id=video_id)
-            logger.info("Summary generation completed")
-            logger.info("\nSummary from video ID: %s", summary)
-
-            # Export summary to file
-            await summarizer.export_summary("summary.json")
-            logger.info("Summary exported to summary.json")
-
-        except Exception as e:
-            logger.error("Error processing video: %s", str(e))
-            raise
+        print("\n✅ Success! You're ready to use TLDWatch.")
+        print("\nNext steps:")
+        print("- Try: tldwatch --create-config")
+        print("- See: examples/simple_example.py")
 
     except Exception as e:
-        logger.error("Fatal error: %s", str(e))
-        raise
+        print(f"❌ Error: {str(e)}")
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("Process interrupted by user")
-    except Exception as e:
-        logger.error("Process failed: %s", str(e))
+    asyncio.run(main())

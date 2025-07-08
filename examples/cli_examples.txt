@@ -1,0 +1,69 @@
+"""
+CLI Usage Examples for TLDWatch
+
+This file shows the most common CLI commands with real examples.
+Make sure you have API keys set up before running these commands.
+
+Setup:
+------
+export OPENAI_API_KEY="your-openai-key"
+export GROQ_API_KEY="your-groq-key"
+
+Basic Commands:
+--------------
+# Summarize a YouTube video
+tldwatch "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
+# Use a specific provider
+tldwatch "dQw4w9WgXcQ" --provider openai --model gpt-4o-mini
+
+# Save output to file
+tldwatch "dQw4w9WgXcQ" --output summary.txt
+
+# Use different chunking strategy
+tldwatch "dQw4w9WgXcQ" --chunking large --temperature 0.3
+
+# Disable caching
+tldwatch "dQw4w9WgXcQ" --no-cache
+
+Configuration:
+-------------
+# Create default config file
+tldwatch --create-config
+
+# View current configuration
+tldwatch --show-config
+
+# List available providers
+tldwatch --list-providers
+
+# Show default models
+tldwatch --show-defaults
+
+Proxy Support:
+-------------
+# Use with Webshare proxy
+tldwatch "dQw4w9WgXcQ" --webshare-username user --webshare-password pass
+
+# Use with generic proxy
+tldwatch "dQw4w9WgXcQ" --http-proxy http://proxy.example.com:8080
+
+Advanced:
+--------
+# Force regeneration (ignore cache)
+tldwatch "dQw4w9WgXcQ" --force-regenerate
+
+# Verbose output
+tldwatch "dQw4w9WgXcQ" --verbose
+
+# Multiple options combined
+tldwatch "dQw4w9WgXcQ" \\
+    --provider groq \\
+    --model llama-3.1-8b-instant \\
+    --chunking small \\
+    --temperature 0.5 \\
+    --output detailed_summary.txt
+"""
+
+# This file is for documentation only - the actual CLI commands
+# are run in the terminal, not as Python code.

@@ -2,7 +2,7 @@
 
 Too long; didn't watch? 
 
-Well, here's a Python library for generating summaries of YouTube video transcripts using the LLM provider and model of your choice.
+`tldwatch` is a Python library for generating summaries of YouTube video transcripts using the LLM provider and model of your choice.
 
 ![Terminal Output](assets/terminal-output.png)
 
@@ -66,7 +66,7 @@ source .env
 export OPENAI_API_KEY="your-key-here"
 
 # Now you can use the CLI directly
-tldwatch "https://www.youtube.com/watch?v=QAgR4uQ15rc"
+tldwatch "https://www.youtube.com/watch?v=QAgR4uQ15rc" --provider openai
 ```
 
 ## Quick Start
